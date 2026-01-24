@@ -99,6 +99,14 @@ def get_sessions(uid):
     path = user_dir(uid)
     return [f for f in os.listdir(f"{path}/sessions") if f.endswith(".session")]
 
+def get_accounts_info(uid):
+    path = user_dir(uid)
+    file = f"{path}/accounts.json"
+    if not os.path.exists(file):
+        return []
+    with open(file, "r") as f:
+        return json.load(f)
+
 def get_tariff(uid):
         path = user_dir(uid)
         tf = f"{path}/tariff.json"
@@ -363,6 +371,27 @@ async def get_code(msg: types.Message, state):
 
     try:
         await client.sign_in(phone=data["phone"], code=msg.text)
+
+        me = await client.get_me()
+
+        account_info = {
+            "phone": data["phone"],
+            "username": me.username or "-"
+        }
+
+        path = user_dir(uid)
+        accounts_file = f"{path}/accounts.json"
+
+        accounts = []
+        if os.path.exists(accounts_file):
+            with open(accounts_file, "r") as f:
+                accounts = json.load(f)
+
+        accounts.append(account_info)
+
+        with open(accounts_file, "w") as f:
+            json.dump(accounts, f, indent=2)
+
         await msg.answer("✅ Аккаунт успешно добавлен", reply_markup=menu())
     except SessionPasswordNeededError:
         await msg.answer("🔑 Включена 2FA. Введи пароль", reply_markup=back_kb())
@@ -465,7 +494,7 @@ async def cabinet(msg: types.Message, state):
     await state.finish()
 
     uid = msg.from_user.id
-    accounts = get_sessions(uid)
+    accounts = get_accounts_info(uid)
     tariff = get_tariff(uid)
     text_msg = get_user_text(uid)
     settings = get_settings(uid)
@@ -479,12 +508,10 @@ async def cabinet(msg: types.Message, state):
         text += "❌ Аккаунты не подключены\n"
     else:
         text += "📱 Подключённые аккаунты:\n"
-        for acc in accounts:
-            acc_str = str(acc)
-            if len(acc_str) >= 4:
-                text += f"• +***{acc_str[-4:]}\n"
-            else:
-                text += f"• {acc_str}\n"
+        for i, acc in enumerate(accounts, 1):
+            phone = acc.get("phone", "-")
+            username = acc.get("username", "-")
+            text += f"• {i}. <b>{phone}</b> — @{username}\n"
 
     text += "\n"
 
@@ -767,6 +794,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
