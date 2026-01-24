@@ -374,20 +374,17 @@ async def get_code(msg: types.Message, state):
 
         me = await client.get_me()
 
-        account_info = {
-            "phone": data["phone"],
-            "username": me.username or "-"
-        }
-
-        path = user_dir(uid)
-        accounts_file = f"{path}/accounts.json"
-
+        accounts_file = f"{user_dir(uid)}/accounts.json"
         accounts = []
+
         if os.path.exists(accounts_file):
             with open(accounts_file, "r") as f:
                 accounts = json.load(f)
 
-        accounts.append(account_info)
+        accounts.append({
+            "phone": data["phone"],
+            "username": me.username or "no_username"
+        })
 
         with open(accounts_file, "w") as f:
             json.dump(accounts, f, indent=2)
@@ -554,37 +551,38 @@ async def delete_account(msg: types.Message, state):
     await state.finish()
 
     try:
-        parts = msg.text.split()
-        if len(parts) != 2:
-            await msg.answer("❌ Используй формат: del 1")
+        idx = int(msg.text.split()[1]) - 1
+        uid = msg.from_user.id
+        path = user_dir(uid)
+
+        accounts_file = f"{path}/accounts.json"
+        sessions_path = f"{path}/sessions"
+
+        if not os.path.exists(accounts_file):
+            await msg.answer("❌ Нет аккаунтов")
             return
 
-        idx = int(parts[1]) - 1
-        uid = msg.from_user.id
-        sessions_path = f"{user_dir(uid)}/sessions"
+        with open(accounts_file, "r") as f:
+            accounts = json.load(f)
 
-        files = get_sessions(uid)
-
-        if idx < 0 or idx >= len(files):
+        if idx < 0 or idx >= len(accounts):
             await msg.answer("❌ Неверный номер аккаунта")
             return
 
-        session_file = files[idx]
-        base = session_file.replace(".session", "")
+        phone = accounts[idx]["phone"]
 
-        removed = 0
+        # удаляем session
         for f in os.listdir(sessions_path):
-            if f.startswith(base):
+            if f.startswith(phone):
                 os.remove(os.path.join(sessions_path, f))
-                removed += 1
 
-        if removed > 0:
-            await msg.answer("✅ Аккаунт удалён")
-        else:
-            await msg.answer("❌ Не удалось удалить аккаунт")
+        # удаляем из accounts.json
+        accounts.pop(idx)
+        with open(accounts_file, "w") as f:
+            json.dump(accounts, f, indent=2)
 
-    except ValueError:
-        await msg.answer("❌ Используй формат: del 1")
+        await msg.answer("✅ Аккаунт полностью удалён")
+
     except Exception as e:
         await msg.answer(f"❌ Ошибка удаления: {e}")
 
@@ -794,6 +792,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
