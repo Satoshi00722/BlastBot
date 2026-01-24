@@ -57,6 +57,9 @@ PHONE_RE = re.compile(r"^\+\d{10,15}$")
 # ======================
 # HELPERS
 # ======================
+def normalize_phone(name: str) -> str:
+    return name.replace("+", "").replace(".session", "")
+
 def get_settings(uid):
     path = user_dir(uid)
     file = f"{path}/settings.json"
@@ -562,8 +565,13 @@ async def delete_account(msg: types.Message, state):
 
     uid = msg.from_user.id
     sessions_path = f"{user_dir(uid)}/sessions"
-
     parts = msg.text.lower().split()
+
+    if not os.path.exists(sessions_path):
+        await msg.answer("❌ Папка sessions не найдена")
+        return
+
+    session_files = [f for f in os.listdir(sessions_path) if f.endswith(".session")]
 
     # ===== del spam =====
     if len(parts) == 2 and parts[1] == "spam":
@@ -574,37 +582,35 @@ async def delete_account(msg: types.Message, state):
             return
 
         removed = 0
-        for phone in list(spam_accounts):
-            for f in os.listdir(sessions_path):
-                if f.startswith(phone):
-                    os.remove(os.path.join(sessions_path, f))
-                    removed += 1
+        for f in list(session_files):
+            phone = normalize_phone(f)
+            if phone in spam_accounts:
+                for x in os.listdir(sessions_path):
+                    if normalize_phone(x) == phone:
+                        os.remove(os.path.join(sessions_path, x))
+                removed += 1
 
         spam_accounts.clear()
-        await msg.answer(f"✅ Удалено аккаунтов: {len(spam_accounts)}")
+        await msg.answer(f"✅ Удалено SPAM-аккаунтов: {removed}")
         return
 
     # ===== del N =====
     try:
-        files = sorted(
-            [f for f in os.listdir(sessions_path) if f.endswith(".session")]
-        )
-
         idx = int(parts[1]) - 1
 
-        if idx < 0 or idx >= len(files):
+        if idx < 0 or idx >= len(session_files):
             await msg.answer("❌ Неверный номер аккаунта")
             return
 
-        base = files[idx].replace(".session", "")
+        base_phone = normalize_phone(session_files[idx])
 
         for f in os.listdir(sessions_path):
-            if f.startswith(base):
+            if normalize_phone(f) == base_phone:
                 os.remove(os.path.join(sessions_path, f))
 
         await msg.answer("✅ Аккаунт полностью удалён")
 
-    except Exception as e:
+    except:
         await msg.answer("❌ Используй: del spam")
 
 # ======================
@@ -825,3 +831,4 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
