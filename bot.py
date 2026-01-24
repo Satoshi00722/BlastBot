@@ -585,6 +585,9 @@ async def delete_account(msg: types.Message, state):
 
     except Exception as e:
         await msg.answer(f"❌ Ошибка удаления: {e}")
+        if uid in workers:
+            # при следующей рассылке список будет пуст
+            pass
 
 # ======================
 # START / STOP WORK
@@ -621,25 +624,27 @@ async def start_work(msg: types.Message, state):
 
     stop_flag = {"stop": False}
     workers[uid] = stop_flag
+    spam_accounts = set()
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
     async def progress(sent, errors, spam_account=None):
+        if spam_account:
+            spam_accounts.add(spam_account)
+
         text = (
             f"🚀 Рассылка запущена\n"
             f"📤 Отправлено: {sent}\n"
             f"❌ Ошибки: {errors}"
         )
 
-        if spam_account:
-            text += (
-                f"\n\n🚫 SPAM-BLOCK ОБНАРУЖЕН\n"
-                f"Аккаунт: {spam_account}\n"
-                f"❗ 15 попыток — 0 отправок\n"
-                f"👉 Рекомендуется удалить: del 1"
-            )
+        if spam_accounts:
+            text += "\n\n🚫 <b>SPAM-BLOCK ОБНАРУЖЕН</b>\n"
+            for acc in spam_accounts:
+                text += f"• {acc}\n"
+            text += "\n👉 Рекомендуется удалить: <code>del N</code>"
 
-        await status.edit_text(text)
+        await status.edit_text(text, parse_mode="HTML")
     asyncio.create_task(spam_worker(path, stop_flag, progress))
 
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
@@ -801,6 +806,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
