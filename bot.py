@@ -96,8 +96,18 @@ def user_dir(uid):
     return path
 
 def get_sessions(uid):
-    path = user_dir(uid)
-    return [f for f in os.listdir(f"{path}/sessions") if f.endswith(".session")]
+    path = f"{user_dir(uid)}/sessions"
+    if not os.path.exists(path):
+        return []
+
+    accounts = set()
+
+    for f in os.listdir(path):
+        if f.startswith("+"):
+            base = f.split(".session")[0]
+            accounts.add(base)
+
+    return sorted(accounts)
 
 def get_accounts_info(uid):
     path = user_dir(uid)
@@ -546,7 +556,7 @@ async def cabinet(msg: types.Message, state):
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
 
-@dp.message_handler(lambda m: m.text.lower().startswith("del "), state="*")
+@dp.message_handler(lambda m: m.text.lower().startswith("del"), state="*")
 async def delete_account(msg: types.Message, state):
     await state.finish()
 
@@ -556,7 +566,7 @@ async def delete_account(msg: types.Message, state):
 
     parts = msg.text.lower().split()
 
-    # ===== del spam =====
+    # ================= del spam =================
     if len(parts) == 2 and parts[1] == "spam":
         spam_accounts = workers.get(uid, {}).get("spam_accounts", set())
 
@@ -565,7 +575,8 @@ async def delete_account(msg: types.Message, state):
             return
 
         removed = 0
-        for sess in files:
+
+        for sess in list(files):
             phone = sess.replace(".session", "")
             if phone in spam_accounts:
                 for f in os.listdir(sessions_path):
@@ -573,12 +584,13 @@ async def delete_account(msg: types.Message, state):
                         os.remove(os.path.join(sessions_path, f))
                 removed += 1
 
-        spam_accounts.clear()
-        await msg.answer(f"✅ Удалено аккаунтов: {removed}")
+        workers[uid]["spam_accounts"].clear()
+
+        await msg.answer(f"✅ Удалено SPAM-аккаунтов: {removed}")
         return
 
-    # ===== del N =====
-    try:
+    # ================= del N =================
+    if len(parts) == 2 and parts[1].isdigit():
         idx = int(parts[1]) - 1
 
         if idx < 0 or idx >= len(files):
@@ -593,9 +605,9 @@ async def delete_account(msg: types.Message, state):
                 os.remove(os.path.join(sessions_path, f))
 
         await msg.answer("✅ Аккаунт удалён")
+        return
 
-    except Exception:
-        await msg.answer("❌ Используй: del 1 или del spam")
+    await msg.answer("❌ Используй команды:\n<code>del spam</code>", parse_mode="HTML")
 
 # ======================
 # START / STOP WORK
@@ -815,6 +827,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
