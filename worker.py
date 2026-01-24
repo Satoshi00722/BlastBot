@@ -25,6 +25,8 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
         random.shuffle(session_files)  # случайный порядок аккаунтов
 
         for sess in session_files:
+            attempts = 0  # попытки отправки
+            success = 0  # успешные отправки
             if stop_flag["stop"]:
                 break
 
@@ -55,6 +57,8 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                     await client.send_message(d.id, message)
                     sent += 1
                     sent_from_account += 1
+                    success += 1
+                    attempts += 1
                     await progress_cb(sent, errors_count)
 
                     await asyncio.sleep(delay_groups)
@@ -64,9 +68,19 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
 
                 except Exception:
                     errors_count += 1
+                    attempts += 1
                     await progress_cb(sent, errors_count)
 
+                    if attempts >= 15 and success == 0:
+                        await progress_cb(
+                            sent,
+                            errors_count,
+                            spam_account=sess.replace(".session", "")
+                        )
+                        break
+
             await client.disconnect()
+
 
         # ⏸ ПАУЗА ПОСЛЕ ВСЕХ АККАУНТОВ
         if not stop_flag["stop"]:
