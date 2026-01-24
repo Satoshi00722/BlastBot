@@ -474,8 +474,18 @@ async def cabinet(msg: types.Message, state):
 
     # АККАУНТЫ
     text += f"🔢 Аккаунтов подключено: <b>{len(accounts)}</b>\n"
+
     if not accounts:
-        text += "❌ Аккаунты не подключены\n"
+    text += "❌ Аккаунты не подключены\n"
+    else:
+    text += "📱 Подключённые аккаунты:\n"
+    for acc in accounts:
+        acc_str = str(acc)
+        if len(acc_str) >= 4:
+            text += f"• +***{acc_str[-4:]}\n"
+        else:
+            text += f"• {acc_str}\n"
+
     text += "\n"
 
     # ТАРИФ
@@ -757,3 +767,4 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
