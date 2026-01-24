@@ -556,17 +556,16 @@ async def cabinet(msg: types.Message, state):
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
 
-@dp.message_handler(lambda m: m.text.lower().startswith("del"), state="*")
+@dp.message_handler(lambda m: m.text.lower().startswith("del "), state="*")
 async def delete_account(msg: types.Message, state):
     await state.finish()
 
     uid = msg.from_user.id
     sessions_path = f"{user_dir(uid)}/sessions"
-    files = get_sessions(uid)
 
     parts = msg.text.lower().split()
 
-    # ================= del spam =================
+    # ===== del spam =====
     if len(parts) == 2 and parts[1] == "spam":
         spam_accounts = workers.get(uid, {}).get("spam_accounts", set())
 
@@ -575,39 +574,38 @@ async def delete_account(msg: types.Message, state):
             return
 
         removed = 0
+        for phone in list(spam_accounts):
+            for f in os.listdir(sessions_path):
+                if f.startswith(phone):
+                    os.remove(os.path.join(sessions_path, f))
+                    removed += 1
 
-        for sess in list(files):
-            phone = sess.replace(".session", "")
-            if phone in spam_accounts:
-                for f in os.listdir(sessions_path):
-                    if f.startswith(phone):
-                        os.remove(os.path.join(sessions_path, f))
-                removed += 1
-
-        workers[uid]["spam_accounts"].clear()
-
-        await msg.answer(f"✅ Удалено SPAM-аккаунтов: {removed}")
+        spam_accounts.clear()
+        await msg.answer(f"✅ Удалено аккаунтов: {len(spam_accounts)}")
         return
 
-    # ================= del N =================
-    if len(parts) == 2 and parts[1].isdigit():
+    # ===== del N =====
+    try:
+        files = sorted(
+            [f for f in os.listdir(sessions_path) if f.endswith(".session")]
+        )
+
         idx = int(parts[1]) - 1
 
         if idx < 0 or idx >= len(files):
             await msg.answer("❌ Неверный номер аккаунта")
             return
 
-        session_file = files[idx]
-        base = session_file.replace(".session", "")
+        base = files[idx].replace(".session", "")
 
         for f in os.listdir(sessions_path):
             if f.startswith(base):
                 os.remove(os.path.join(sessions_path, f))
 
-        await msg.answer("✅ Аккаунт удалён")
-        return
+        await msg.answer("✅ Аккаунт полностью удалён")
 
-    await msg.answer("❌ Используй команды:\n<code>del spam</code>", parse_mode="HTML")
+    except Exception as e:
+        await msg.answer("❌ Используй: del spam")
 
 # ======================
 # START / STOP WORK
@@ -827,13 +825,3 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
-
-
-
-
-
-
-
-
-
-
