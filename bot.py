@@ -478,7 +478,7 @@ text += f"🔢 Аккаунтов подключено: <b>{len(accounts)}</b>\n
 if not accounts:
     text += "❌ Аккаунты не подключены\n"
 else:
-    text += "📱 Подключённые аккаунты:\n"
+    text += "📋 Подключённые аккаунты:\n"
     for i, acc in enumerate(accounts, 1):
         acc_str = str(acc)
         if len(acc_str) >= 4:
@@ -488,14 +488,15 @@ else:
 
 text += "\n"
 
-
     # ТАРИФ
-    text += "💳 <b>Тариф:</b>\n"
-    text += f"• План: <b>{tariff['name']}</b>\n"
-    if tariff["expires"]:
-        left = int((tariff["expires"] - time.time()) / 3600)
-        text += f"• ⏳ Осталось: ~{left} ч.\n"
-    text += "\n"
+text += "💳 <b>Тариф:</b>\n"
+text += f"📦 План: <b>{tariff['name']}</b>\n"
+
+if tariff["expires"]:
+    left = int((tariff["expires"] - time.time()) / 3600)
+    text += f"⏳ Осталось: ~{left} ч.\n"
+
+text += "\n"
 
     # ТЕКСТ РАССЫЛКИ
     text += "📄 <b>Текст рассылки:</b>\n"
@@ -768,5 +769,6 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
