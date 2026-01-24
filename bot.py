@@ -550,44 +550,52 @@ async def cabinet(msg: types.Message, state):
 async def delete_account(msg: types.Message, state):
     await state.finish()
 
-    try:
-        idx = int(msg.text.split()[1]) - 1
-        uid = msg.from_user.id
-        path = user_dir(uid)
+    uid = msg.from_user.id
+    sessions_path = f"{user_dir(uid)}/sessions"
+    files = get_sessions(uid)
 
-        accounts_file = f"{path}/accounts.json"
-        sessions_path = f"{path}/sessions"
+    parts = msg.text.lower().split()
 
-        if not os.path.exists(accounts_file):
-            await msg.answer("❌ Нет аккаунтов")
+    # ===== del spam =====
+    if len(parts) == 2 and parts[1] == "spam":
+        spam_accounts = workers.get(uid, {}).get("spam_accounts", set())
+
+        if not spam_accounts:
+            await msg.answer("ℹ️ Нет аккаунтов в SPAM-блоке")
             return
 
-        with open(accounts_file, "r") as f:
-            accounts = json.load(f)
+        removed = 0
+        for sess in files:
+            phone = sess.replace(".session", "")
+            if phone in spam_accounts:
+                for f in os.listdir(sessions_path):
+                    if f.startswith(phone):
+                        os.remove(os.path.join(sessions_path, f))
+                removed += 1
 
-        if idx < 0 or idx >= len(accounts):
+        spam_accounts.clear()
+        await msg.answer(f"✅ Удалено аккаунтов: {removed}")
+        return
+
+    # ===== del N =====
+    try:
+        idx = int(parts[1]) - 1
+
+        if idx < 0 or idx >= len(files):
             await msg.answer("❌ Неверный номер аккаунта")
             return
 
-        phone = accounts[idx]["phone"]
+        session_file = files[idx]
+        base = session_file.replace(".session", "")
 
-        # удаляем session
         for f in os.listdir(sessions_path):
-            if f.startswith(phone):
+            if f.startswith(base):
                 os.remove(os.path.join(sessions_path, f))
 
-        # удаляем из accounts.json
-        accounts.pop(idx)
-        with open(accounts_file, "w") as f:
-            json.dump(accounts, f, indent=2)
+        await msg.answer("✅ Аккаунт удалён")
 
-        await msg.answer("✅ Аккаунт полностью удалён")
-
-    except Exception as e:
-        await msg.answer(f"❌ Ошибка удаления: {e}")
-        if uid in workers:
-            # при следующей рассылке список будет пуст
-            pass
+    except Exception:
+        await msg.answer("❌ Используй: del 1 или del spam")
 
 # ======================
 # START / STOP WORK
@@ -625,6 +633,7 @@ async def start_work(msg: types.Message, state):
     stop_flag = {"stop": False}
     workers[uid] = stop_flag
     spam_accounts = set()
+    workers[uid]["spam_accounts"] = spam_accounts
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
@@ -806,6 +815,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
