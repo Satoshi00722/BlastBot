@@ -473,30 +473,28 @@ async def cabinet(msg: types.Message, state):
     text = "👤 <b>Личный кабинет</b>\n\n"
 
     # АККАУНТЫ
-text += f"🔢 Аккаунтов подключено: <b>{len(accounts)}</b>\n"
+    text += f"🔢 Аккаунтов подключено: <b>{len(accounts)}</b>\n"
 
-if not accounts:
-    text += "❌ Аккаунты не подключены\n"
-else:
-    text += "📋 Подключённые аккаунты:\n"
-    for i, acc in enumerate(accounts, 1):
-        acc_str = str(acc)
-        if len(acc_str) >= 4:
-            text += f"  {i}. ***{acc_str[-4:]}\n"
-        else:
-            text += f"  {i}. {acc_str}\n"
+    if not accounts:
+        text += "❌ Аккаунты не подключены\n"
+    else:
+        text += "📱 Подключённые аккаунты:\n"
+        for acc in accounts:
+            acc_str = str(acc)
+            if len(acc_str) >= 4:
+                text += f"• +***{acc_str[-4:]}\n"
+            else:
+                text += f"• {acc_str}\n"
 
-text += "\n"
+    text += "\n"
 
     # ТАРИФ
-text += "💳 <b>Тариф:</b>\n"
-text += f"📦 План: <b>{tariff['name']}</b>\n"
-
-if tariff["expires"]:
-    left = int((tariff["expires"] - time.time()) / 3600)
-    text += f"⏳ Осталось: ~{left} ч.\n"
-
-text += "\n"
+    text += "💳 <b>Тариф:</b>\n"
+    text += f"• План: <b>{tariff['name']}</b>\n"
+    if tariff["expires"]:
+        left = int((tariff["expires"] - time.time()) / 3600)
+        text += f"• ⏳ Осталось: ~{left} ч.\n"
+    text += "\n"
 
     # ТЕКСТ РАССЫЛКИ
     text += "📄 <b>Текст рассылки:</b>\n"
@@ -769,6 +767,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
