@@ -669,9 +669,9 @@ async def start_work(msg: types.Message, state):
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
-    async def progress(sent, errors, spam_account=None):
-        if spam_account:
-            spam_accounts.add(spam_account)
+    async def progress(sent, errors, spam_index=None):
+        if spam_index:
+            spam_accounts.add(spam_index)
 
         text = (
             f"🚀 Рассылка запущена\n"
@@ -681,9 +681,12 @@ async def start_work(msg: types.Message, state):
 
         if spam_accounts:
             text += "\n\n🚫 <b>SPAM-BLOCK ОБНАРУЖЕН</b>\n"
-            for acc in spam_accounts:
-                text += f"• {acc}\n"
-            text += "\n👉 Рекомендуется удалить: <code>del N</code>"
+            for i in sorted(spam_accounts):
+                text += f"• Аккаунт №<b>{i}</b>\n"
+
+            text += "\n👉 Удалить: "
+            for i in sorted(spam_accounts):
+                text += f"<code>del {i}</code> "
 
         await status.edit_text(text, parse_mode="HTML")
     asyncio.create_task(spam_worker(path, stop_flag, progress))
