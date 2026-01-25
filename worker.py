@@ -5,11 +5,8 @@ import random
 from telethon import TelegramClient, errors
 from config import API_ID, API_HASH
 
-def normalize_phone(phone: str) -> str:
-    return phone.replace("+", "").strip()
 
-async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
-    # ===== LOAD DATA =====
+async def spam_worker(user_dir, stop_flag, progress_cb):
     settings = json.load(open(f"{user_dir}/settings.json"))
     message = open(f"{user_dir}/message.txt", encoding="utf-8").read()
     sessions_dir = f"{user_dir}/sessions"
@@ -21,45 +18,31 @@ async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
     sent = 0
     errors_count = 0
 
-    # 🔁 MAIN LOOP
+    # 🔁 БЕСКОНЕЧНЫЙ ЦИКЛ
     while not stop_flag["stop"]:
 
-        # идём по аккаунтам В ТОМ ЖЕ ПОРЯДКЕ, что в кабинете
-        for acc_index, acc in enumerate(accounts, start=1):
+        session_files = os.listdir(sessions_dir)
+        random.shuffle(session_files)  # случайный порядок аккаунтов
+
+        for sess in session_files:
             if stop_flag["stop"]:
                 break
 
-            raw_phone = acc["phone"]
-            phone = normalize_phone(raw_phone)
-            session_path = f"{sessions_dir}/{phone}"
-
-            # если сессии нет — пропускаем
-            if not os.path.exists(session_path + ".session"):
-                continue
-
             client = TelegramClient(
-                session_path,
+                f"{sessions_dir}/{sess.replace('.session','')}",
                 API_ID,
                 API_HASH
             )
-
-            try:
-                await client.start()
-            except Exception as e:
-                errors_count += 1
-                await progress_cb(sent, errors_count)
-                print(f"[ERROR] Account {raw_phone} start failed: {e}")
-                continue
-
-            sent_from_account = 0
-            failed_attempts = 0
+            await client.start()
 
             dialogs = []
             async for d in client.iter_dialogs():
                 if d.is_group or d.is_channel:
                     dialogs.append(d)
 
-            random.shuffle(dialogs)
+            random.shuffle(dialogs)  # 🔥 случайные группы каждый круг
+
+            sent_from_account = 0
 
             for d in dialogs:
                 if stop_flag["stop"]:
@@ -72,31 +55,20 @@ async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
                     await client.send_message(d.id, message)
                     sent += 1
                     sent_from_account += 1
-                    failed_attempts = 0
-
                     await progress_cb(sent, errors_count)
+
                     await asyncio.sleep(delay_groups)
 
                 except errors.FloodWaitError as e:
                     await asyncio.sleep(e.seconds)
 
                 except Exception:
-                    failed_attempts += 1
                     errors_count += 1
                     await progress_cb(sent, errors_count)
 
-                    # 🚫 SPAM-BLOCK: 15 ошибок подряд и 0 отправок
-                    if failed_attempts >= 15 and sent_from_account == 0:
-                        await progress_cb(
-                            sent,
-                            errors_count,
-                            spam_index=acc_index  # 👈 НОМЕР АККАУНТА
-                        )
-                        break
-
             await client.disconnect()
 
-        # ⏸ PAUSE BETWEEN CYCLES
+        # ⏸ ПАУЗА ПОСЛЕ ВСЕХ АККАУНТОВ
         if not stop_flag["stop"]:
             await asyncio.sleep(delay_cycle)
 
