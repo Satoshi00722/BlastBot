@@ -5,6 +5,8 @@ import random
 from telethon import TelegramClient, errors
 from config import API_ID, API_HASH
 
+def normalize_phone(phone: str) -> str:
+    return phone.replace("+", "").strip()
 
 async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
     # ===== LOAD DATA =====
@@ -27,7 +29,8 @@ async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
             if stop_flag["stop"]:
                 break
 
-            phone = acc["phone"]
+            raw_phone = acc["phone"]
+            phone = normalize_phone(raw_phone)
             session_path = f"{sessions_dir}/{phone}"
 
             # если сессии нет — пропускаем
@@ -42,9 +45,10 @@ async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
 
             try:
                 await client.start()
-            except Exception:
+            except Exception as e:
                 errors_count += 1
                 await progress_cb(sent, errors_count)
+                print(f"[ERROR] Account {raw_phone} start failed: {e}")
                 continue
 
             sent_from_account = 0
@@ -97,3 +101,4 @@ async def spam_worker(user_dir, stop_flag, progress_cb, accounts):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
