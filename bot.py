@@ -779,34 +779,47 @@ async def check_payment(call: types.CallbackQuery):
     data = load_payment(uid)
 
     if not data:
-        await call.message.answer("❌ У вас нет активного счёта.")
+        await call.message.answer("❌ Оплаты нет. Счёт не найден.")
         return
 
-    payload = data["payload"]
+    invoice_id = data["invoice_id"]
+    tariff_key = data["tariff_key"]
 
     import requests
+
     url = "https://pay.crypt.bot/api/getInvoices"
-    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_TOKEN}
-    params = {"payload": payload}
+    headers = {
+        "Crypto-Pay-API-Token": CRYPTOBOT_TOKEN
+    }
+    params = {
+        "invoice_ids": invoice_id
+    }
 
     resp = requests.get(url, headers=headers, params=params, timeout=10).json()
 
-    invoices = resp.get("result", {}).get("items", [])
-
-    if not invoices:
-        await call.message.answer("❌ Счёт не найден.")
+    if not resp.get("ok"):
+        await call.message.answer("❌ Ошибка проверки оплаты.")
         return
 
-    invoice = invoices[0]
+    items = resp.get("result", {}).get("items", [])
 
-    if invoice.get("status") != "paid":
-        await call.message.answer("⏳ Оплата не получена.")
+    if not items:
+        await call.message.answer("❌ Оплаты нет.")
         return
 
-    activate_tariff(uid, data["tariff_key"])
+    invoice = items[0]
+
+    if invoice["status"] != "paid":
+        await call.message.answer("❌ Оплаты нет.")
+        return
+
+    # ✅ ТОЛЬКО ТУТ
+    activate_tariff(uid, tariff_key)
     delete_payment(uid)
 
-    await call.message.answer("✅ Оплата получена.\n🎉 Ваш тариф активирован.")
+    await call.message.answer(
+        "✅ Оплата получена.\n🎉 Тариф активирован."
+    )
     await call.message.edit_reply_markup()
 
 # ======================
@@ -821,6 +834,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
