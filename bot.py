@@ -184,15 +184,6 @@ class SettingsFSM(StatesGroup):
     delay_cycle = State()
 
 # ======================
-# BACK
-# ======================
-@dp.message_handler(lambda m: m.text == "⬅️ Назад", state="*")
-async def back(msg: types.Message, state):
-    await reset_login(msg.from_user.id)
-    await state.finish()
-    await msg.answer("↩️ Возврат в меню", reply_markup=menu())
-
-# ======================
 # START
 # ======================
 @dp.message_handler(commands=["start"], state="*")
@@ -210,15 +201,22 @@ async def start(msg: types.Message, state):
         f"🌍 Язык: {user.language_code}"
     )
 
-    # 🔔 УВЕДОМЛЕНИЕ В КАНАЛ
     await bot.send_message(ADMIN_CHANNEL_ID, text)
 
-    # 👤 ОТВЕТ ПОЛЬЗОВАТЕЛЮ
     await msg.answer(
         "🚀 <b>Панель управления</b>\n\nВыбери действие ⬇️",
         reply_markup=menu(),
         parse_mode="HTML"
     )
+
+# ======================
+# BACK
+# ======================
+@dp.message_handler(lambda m: m.text == "⬅️ Назад", state="*")
+async def back(msg: types.Message, state):
+    await reset_login(msg.from_user.id)
+    await state.finish()
+    await msg.answer("↩️ Возврат в меню", reply_markup=menu())
 
 # ======================
 # ПОЛЬЗОВАНИЕ
@@ -809,6 +807,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
