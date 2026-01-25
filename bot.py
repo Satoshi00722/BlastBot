@@ -183,11 +183,6 @@ class SettingsFSM(StatesGroup):
     groups_count = State()
     delay_cycle = State()
 
-@dp.callback_query_handler(state="*")
-async def ANY_CALLBACK(call: types.CallbackQuery):
-    print("🔥 ANY CALLBACK:", call.data, flush=True)
-    await call.answer("callback ok")
-
 # ======================
 # START
 # ======================
@@ -823,6 +818,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
