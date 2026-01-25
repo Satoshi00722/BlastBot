@@ -771,7 +771,6 @@ async def buy_365(msg: types.Message):
     )
 @dp.callback_query_handler(lambda c: c.data == "check_payment", state="*")
 async def check_payment(call: types.CallbackQuery):
-    print("CALLBACK check_payment CALLED", flush=True)
     await call.answer("Проверяю оплату...")
 
     uid = call.from_user.id
@@ -782,29 +781,34 @@ async def check_payment(call: types.CallbackQuery):
         return
 
     loop = asyncio.get_running_loop()
+
+    # 🔑 ПРОВЕРКА ПО PAYLOAD (А НЕ ПО invoice_id)
     resp = await loop.run_in_executor(
         None,
         lambda: get_invoice(
             CRYPTOBOT_TOKEN,
-            invoice_ids=[data["invoice_id"]]
+            payload=f"tariff_{data['tariff_key']}_{uid}"
         )
     )
 
     invoices = resp.get("result", [])
 
     if not invoices:
-        await call.message.answer("❌ Счёт не найден")
+        await call.message.answer("❌ Платёж не найден в CryptoBot")
         return
 
-    invoice = invoices[0]
+    for invoice in invoices:
+        if invoice.get("status") == "paid":
+            activate_tariff(uid, data["tariff_key"])
+            delete_payment(uid)
 
-    if invoice["status"] == "paid":
-        activate_tariff(uid, data["tariff_key"])
-        delete_payment(uid)
-        await call.message.answer("✅ Оплата получена!\n🎉 Тариф активирован")
-        await call.message.edit_reply_markup()
-    else:
-        await call.message.answer("⏳ Платёж ещё не подтверждён")
+            await call.message.answer(
+                "✅ Оплата получена!\n🎉 Тариф активирован"
+            )
+            await call.message.edit_reply_markup()
+            return
+
+    await call.message.answer("⏳ Платёж ещё не подтверждён")
 
 # ======================
 # RUN
@@ -818,6 +822,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
