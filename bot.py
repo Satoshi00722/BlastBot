@@ -57,9 +57,6 @@ PHONE_RE = re.compile(r"^\+\d{10,15}$")
 # ======================
 # HELPERS
 # ======================
-def normalize_phone(name: str) -> str:
-    return name.replace("+", "").replace(".session", "")
-
 def get_settings(uid):
     path = user_dir(uid)
     file = f"{path}/settings.json"
@@ -99,18 +96,8 @@ def user_dir(uid):
     return path
 
 def get_sessions(uid):
-    path = f"{user_dir(uid)}/sessions"
-    if not os.path.exists(path):
-        return []
-
-    accounts = set()
-
-    for f in os.listdir(path):
-        if f.startswith("+"):
-            base = f.split(".session")[0]
-            accounts.add(base)
-
-    return sorted(accounts)
+    path = user_dir(uid)
+    return [f for f in os.listdir(f"{path}/sessions") if f.endswith(".session")]
 
 def get_accounts_info(uid):
     path = user_dir(uid)
@@ -562,72 +549,42 @@ async def cabinet(msg: types.Message, state):
 @dp.message_handler(lambda m: m.text.lower().startswith("del "), state="*")
 async def delete_account(msg: types.Message, state):
     await state.finish()
-    uid = msg.from_user.id
 
-    parts = msg.text.lower().split()
-    if len(parts) != 2:
-        await msg.answer("❌ Используй: <code>del 1</code> или <code>del spam</code>", parse_mode="HTML")
-        return
+    try:
+        idx = int(msg.text.split()[1]) - 1
+        uid = msg.from_user.id
+        path = user_dir(uid)
 
-    accounts_file = f"{user_dir(uid)}/accounts.json"
-    sessions_path = f"{user_dir(uid)}/sessions"
+        accounts_file = f"{path}/accounts.json"
+        sessions_path = f"{path}/sessions"
 
-    if not os.path.exists(accounts_file):
-        await msg.answer("❌ Аккаунты не найдены")
-        return
-
-    with open(accounts_file, "r") as f:
-        accounts = json.load(f)
-
-    # ===== del spam =====
-    if parts[1] == "spam":
-        spam_accounts = workers.get(uid, {}).get("spam_accounts", set())
-
-        if not spam_accounts:
-            await msg.answer("ℹ️ Нет аккаунтов в SPAM-блоке")
+        if not os.path.exists(accounts_file):
+            await msg.answer("❌ Нет аккаунтов")
             return
 
-        new_accounts = []
-        removed = 0
+        with open(accounts_file, "r") as f:
+            accounts = json.load(f)
 
-        for acc in accounts:
-            phone = normalize_phone(acc["phone"])
-            if phone in spam_accounts:
-                for f in os.listdir(sessions_path):
-                    if normalize_phone(f) == phone:
-                        os.remove(os.path.join(sessions_path, f))
-                removed += 1
-            else:
-                new_accounts.append(acc)
+        if idx < 0 or idx >= len(accounts):
+            await msg.answer("❌ Неверный номер аккаунта")
+            return
 
+        phone = accounts[idx]["phone"]
+
+        # удаляем session
+        for f in os.listdir(sessions_path):
+            if f.startswith(phone):
+                os.remove(os.path.join(sessions_path, f))
+
+        # удаляем из accounts.json
+        accounts.pop(idx)
         with open(accounts_file, "w") as f:
-            json.dump(new_accounts, f, indent=2)
+            json.dump(accounts, f, indent=2)
 
-        spam_accounts.clear()
-        await msg.answer(f"✅ Удалено SPAM-аккаунтов: {removed}")
-        return
+        await msg.answer("✅ Аккаунт полностью удалён")
 
-    # ===== del N =====
-    if not parts[1].isdigit():
-        await msg.answer("❌ Используй: <code>del 1</code> или <code>del spam</code>", parse_mode="HTML")
-        return
-
-    idx = int(parts[1]) - 1
-    if idx < 0 or idx >= len(accounts):
-        await msg.answer("❌ Неверный номер аккаунта")
-        return
-
-    phone = accounts[idx]["phone"]
-
-    for f in os.listdir(sessions_path):
-        if normalize_phone(f) == normalize_phone(phone):
-            os.remove(os.path.join(sessions_path, f))
-
-    accounts.pop(idx)
-    with open(accounts_file, "w") as f:
-        json.dump(accounts, f, indent=2)
-
-    await msg.answer(f"✅ Аккаунт <b>{phone}</b> удалён", parse_mode="HTML")
+    except Exception as e:
+        await msg.answer(f"❌ Ошибка удаления: {e}")
 
 # ======================
 # START / STOP WORK
@@ -664,37 +621,17 @@ async def start_work(msg: types.Message, state):
 
     stop_flag = {"stop": False}
     workers[uid] = stop_flag
-    spam_accounts = set()
-    workers[uid]["spam_accounts"] = spam_accounts
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
-    async def progress(sent, errors, spam_index=None):
-        if spam_index:
-            spam_accounts.add(spam_index)
-
-        text = (
+    async def progress(sent, errors):
+        await status.edit_text(
             f"🚀 Рассылка запущена\n"
             f"📤 Отправлено: {sent}\n"
             f"❌ Ошибки: {errors}"
         )
 
-        if spam_accounts:
-            text += "\n\n🚫 <b>SPAM-BLOCK ОБНАРУЖЕН</b>\n"
-            for i in sorted(spam_accounts):
-                text += f"• Аккаунт №<b>{i}</b>\n"
-
-            text += "\n👉 Удалить:\n"
-            for i in sorted(spam_accounts):
-                text += f"<code>del {i}</code>\n"
-
-        await status.edit_text(text, parse_mode="HTML")
-
-        accounts = get_accounts_info(uid)
-
-        asyncio.create_task(
-            spam_worker(path, stop_flag, progress, accounts)
-        )
+    asyncio.create_task(spam_worker(path, stop_flag, progress))
 
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
 async def stop(msg: types.Message, state):
@@ -855,4 +792,5 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
