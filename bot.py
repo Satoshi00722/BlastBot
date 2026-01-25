@@ -7,6 +7,7 @@ from cryptobot import create_invoice, get_invoice
 from config import CRYPTOBOT_TOKEN
 import os, json, asyncio, re
 import time
+import requests
 
 from telethon import TelegramClient
 from config import ADMIN_CHANNEL_ID
@@ -782,24 +783,29 @@ async def check_payment(call: types.CallbackQuery):
 
     tariff_key = data["tariff_key"]
     tariff = TARIFFS[tariff_key]
-    need_amount = str(tariff["price"])
-    need_desc = f"Тариф {tariff['days']} дней"
 
-    loop = asyncio.get_running_loop()
+    url = "https://pay.crypt.bot/api/getInvoices"
+    headers = {
+        "Crypto-Pay-API-Token": CRYPTOBOT_TOKEN
+    }
 
-    resp = await loop.run_in_executor(
-        None,
-        lambda: get_invoice(CRYPTOBOT_TOKEN)
-    )
+    params = {
+        "status": "paid"
+    }
+
+    resp = requests.get(url, headers=headers, params=params, timeout=10).json()
+
+    if not resp.get("ok"):
+        await call.message.answer("❌ Ошибка проверки оплаты (CryptoBot)")
+        return
 
     invoices = resp.get("result", {}).get("items", [])
 
     for inv in invoices:
         if (
-            inv.get("status") == "paid"
-            and inv.get("asset") == "USDT"
-            and str(inv.get("amount")) == need_amount
-            and need_desc in inv.get("description", "")
+            inv.get("asset") == "USDT"
+            and float(inv.get("amount", 0)) == float(tariff["price"])
+            and f"Тариф {tariff['days']} дней" in inv.get("description", "")
         ):
             activate_tariff(uid, tariff_key)
             delete_payment(uid)
@@ -826,6 +832,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
