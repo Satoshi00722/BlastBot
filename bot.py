@@ -9,6 +9,7 @@ import os, json, asyncio, re
 import time
 
 from telethon import TelegramClient
+from config import ADMIN_CHANNEL_ID
 from telethon.errors import SessionPasswordNeededError
 from config import BOT_TOKEN, API_ID, API_HASH
 from worker import spam_worker
@@ -304,6 +305,21 @@ async def buy_accounts(msg: types.Message, state):
 # ======================
 # АККАУНТЫ
 # ======================
+@dp.message_handler(commands=["start"])
+async def start_cmd(message: types.Message):
+    user = message.from_user
+
+    text = (
+        "🚀 Новый старт бота\n\n"
+        f"👤 User ID: {user.id}\n"
+        f"👀 Username: @{user.username if user.username else 'нет'}\n"
+        f"📛 Имя: {user.first_name}\n"
+        f"🌍 Язык: {user.language_code}"
+    )
+
+    await bot.send_message(ADMIN_CHANNEL_ID, text)
+    await message.answer("Привет! Бот запущен ✅")
+
 @dp.message_handler(lambda m: m.text == "🔓 Подключить", state="*")
 async def add_account(msg: types.Message, state):
     if not is_tariff_active(msg.from_user.id):
@@ -792,5 +808,6 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
