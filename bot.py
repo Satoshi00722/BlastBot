@@ -186,6 +186,7 @@ class SettingsFSM(StatesGroup):
 # ======================
 # START
 # ======================
+@dp.message_handler(commands=["start"], state="*")
 async def start(msg: types.Message, state):
     await state.finish()
 
@@ -200,14 +201,15 @@ async def start(msg: types.Message, state):
         f"🌍 Язык: {user.language_code}"
     )
 
+    # 🔔 УВЕДОМЛЕНИЕ В КАНАЛ
     await bot.send_message(ADMIN_CHANNEL_ID, text)
 
+    # 👤 ОТВЕТ ПОЛЬЗОВАТЕЛЮ
     await msg.answer(
         "🚀 <b>Панель управления</b>\n\nВыбери действие ⬇️",
         reply_markup=menu(),
         parse_mode="HTML"
     )
-    dp.register_message_handler(start, commands=['start'], state='*')
 
 # ======================
 # BACK
@@ -807,6 +809,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
