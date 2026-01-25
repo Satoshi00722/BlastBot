@@ -8,6 +8,7 @@ from config import CRYPTOBOT_TOKEN
 import os, json, asyncio, re
 import time
 import requests
+import uuid
 
 from telethon import TelegramClient
 from config import ADMIN_CHANNEL_ID
@@ -778,47 +779,35 @@ async def check_payment(call: types.CallbackQuery):
     data = load_payment(uid)
 
     if not data:
-        await call.message.answer("❌ Оплата не найдена. Нажмите «Оплатить счёт».")
+        await call.message.answer("❌ У вас нет активного счёта.")
         return
 
-    tariff_key = data["tariff_key"]
-    tariff = TARIFFS[tariff_key]
+    payload = data["payload"]
 
+    import requests
     url = "https://pay.crypt.bot/api/getInvoices"
-    headers = {
-        "Crypto-Pay-API-Token": CRYPTOBOT_TOKEN
-    }
-
-    params = {
-        "status": "paid"
-    }
+    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_TOKEN}
+    params = {"payload": payload}
 
     resp = requests.get(url, headers=headers, params=params, timeout=10).json()
 
-    if not resp.get("ok"):
-        await call.message.answer("❌ Ошибка проверки оплаты (CryptoBot)")
-        return
-
     invoices = resp.get("result", {}).get("items", [])
 
-    for inv in invoices:
-        if (
-            inv.get("asset") == "USDT"
-            and float(inv.get("amount", 0)) == float(tariff["price"])
-            and f"Тариф {tariff['days']} дней" in inv.get("description", "")
-        ):
-            activate_tariff(uid, tariff_key)
-            delete_payment(uid)
+    if not invoices:
+        await call.message.answer("❌ Счёт не найден.")
+        return
 
-            await call.message.answer(
-                "✅ Оплата получена.\n🎉 Ваш тариф активирован."
-            )
-            await call.message.edit_reply_markup()
-            return
+    invoice = invoices[0]
 
-    await call.message.answer(
-        "❌ Оплата не найдена. Если вы оплатили — подождите 1–2 минуты и нажмите ещё раз."
-    )
+    if invoice.get("status") != "paid":
+        await call.message.answer("⏳ Оплата не получена.")
+        return
+
+    activate_tariff(uid, data["tariff_key"])
+    delete_payment(uid)
+
+    await call.message.answer("✅ Оплата получена.\n🎉 Ваш тариф активирован.")
+    await call.message.edit_reply_markup()
 
 # ======================
 # RUN
@@ -832,6 +821,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
