@@ -771,7 +771,7 @@ async def buy_365(msg: types.Message):
     )
 @dp.callback_query_handler(lambda c: c.data == "check_payment", state="*")
 async def check_payment(call: types.CallbackQuery):
-    await call.answer()  # ОБЯЗАТЕЛЬНО
+    await call.answer()
 
     uid = call.from_user.id
     data = load_payment(uid)
@@ -780,8 +780,12 @@ async def check_payment(call: types.CallbackQuery):
         await call.message.answer("❌ Платёж не найден")
         return
 
-    resp = get_invoice(CRYPTOBOT_TOKEN, data["invoice_id"])
-    invoices = resp.get("result", {}).get("items", [])
+    resp = get_invoice(
+        CRYPTOBOT_TOKEN,
+        invoice_ids=[data["invoice_id"]]
+    )
+
+    invoices = resp.get("result", [])
 
     if not invoices:
         await call.message.answer("❌ Счёт не найден")
@@ -798,7 +802,7 @@ async def check_payment(call: types.CallbackQuery):
         )
     else:
         await call.message.answer("⏳ Платёж ещё не подтверждён")
-
+        
 # ======================
 # RUN
 # ======================
@@ -811,6 +815,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
