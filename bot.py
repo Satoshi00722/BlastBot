@@ -684,12 +684,17 @@ async def start_work(msg: types.Message, state):
             for i in sorted(spam_accounts):
                 text += f"• Аккаунт №<b>{i}</b>\n"
 
-            text += "\n👉 Удалить: "
+            text += "\n👉 Удалить:\n"
             for i in sorted(spam_accounts):
-                text += f"<code>del {i}</code> "
+                text += f"<code>del {i}</code>\n"
 
         await status.edit_text(text, parse_mode="HTML")
-    asyncio.create_task(spam_worker(path, stop_flag, progress))
+
+        accounts = get_accounts_info(uid)
+
+        asyncio.create_task(
+            spam_worker(path, stop_flag, progress, accounts)
+        )
 
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
 async def stop(msg: types.Message, state):
@@ -850,3 +855,4 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
