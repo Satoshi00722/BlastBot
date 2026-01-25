@@ -771,7 +771,7 @@ async def buy_365(msg: types.Message):
     )
 @dp.callback_query_handler(lambda c: c.data == "check_payment", state="*")
 async def check_payment(call: types.CallbackQuery):
-    await call.answer()
+    await call.answer("Проверяю оплату...")
 
     uid = call.from_user.id
     data = load_payment(uid)
@@ -780,9 +780,15 @@ async def check_payment(call: types.CallbackQuery):
         await call.message.answer("❌ Платёж не найден")
         return
 
-    resp = get_invoice(
-        CRYPTOBOT_TOKEN,
-        invoice_ids=[data["invoice_id"]]
+    loop = asyncio.get_running_loop()
+
+    # ⬇️ ВАЖНО: выносим sync API в executor
+    resp = await loop.run_in_executor(
+        None,
+        lambda: get_invoice(
+            CRYPTOBOT_TOKEN,
+            invoice_ids=[data["invoice_id"]]
+        )
     )
 
     invoices = resp.get("result", [])
@@ -797,12 +803,11 @@ async def check_payment(call: types.CallbackQuery):
         activate_tariff(uid, data["tariff_key"])
         delete_payment(uid)
 
-        await call.message.answer(
-            "✅ Оплата получена!\n🎉 Тариф активирован"
-        )
+        await call.message.answer("✅ Оплата получена!\n🎉 Тариф активирован")
+        await call.message.edit_reply_markup()
     else:
         await call.message.answer("⏳ Платёж ещё не подтверждён")
-        
+
 # ======================
 # RUN
 # ======================
@@ -815,6 +820,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
