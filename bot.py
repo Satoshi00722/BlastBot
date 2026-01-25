@@ -782,24 +782,23 @@ async def check_payment(call: types.CallbackQuery):
 
     tariff_key = data["tariff_key"]
     tariff = TARIFFS[tariff_key]
-    need_amount = tariff["price"]
+    need_amount = str(tariff["price"])
     need_desc = f"Тариф {tariff['days']} дней"
 
     loop = asyncio.get_running_loop()
 
-    # ⚠️ ЗАПРАШИВАЕМ ВСЕ ИНВОЙСЫ
     resp = await loop.run_in_executor(
         None,
         lambda: get_invoice(CRYPTOBOT_TOKEN)
     )
 
-    invoices = resp.get("result", [])
+    invoices = resp.get("result", {}).get("items", [])
 
     for inv in invoices:
         if (
             inv.get("status") == "paid"
             and inv.get("asset") == "USDT"
-            and float(inv.get("amount", 0)) == float(need_amount)
+            and str(inv.get("amount")) == need_amount
             and need_desc in inv.get("description", "")
         ):
             activate_tariff(uid, tariff_key)
@@ -811,7 +810,9 @@ async def check_payment(call: types.CallbackQuery):
             await call.message.edit_reply_markup()
             return
 
-    await call.message.answer("❌ Оплата не найдена. Если вы оплатили — подождите 1–2 минуты и нажмите ещё раз.")
+    await call.message.answer(
+        "❌ Оплата не найдена. Если вы оплатили — подождите 1–2 минуты и нажмите ещё раз."
+    )
 
 # ======================
 # RUN
@@ -825,6 +826,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
