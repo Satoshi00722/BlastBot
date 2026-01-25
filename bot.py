@@ -198,6 +198,22 @@ async def back(msg: types.Message, state):
 @dp.message_handler(commands=["start"], state="*")
 async def start(msg: types.Message, state):
     await state.finish()
+
+    user = msg.from_user
+    username = f"@{user.username}" if user.username else "нет"
+
+    text = (
+        "🚀 Новый старт бота\n\n"
+        f"👤 User ID: {user.id}\n"
+        f"👀 Username: {username}\n"
+        f"📛 Имя: {user.first_name}\n"
+        f"🌍 Язык: {user.language_code}"
+    )
+
+    # 🔔 УВЕДОМЛЕНИЕ В КАНАЛ
+    await bot.send_message(ADMIN_CHANNEL_ID, text)
+
+    # 👤 ОТВЕТ ПОЛЬЗОВАТЕЛЮ
     await msg.answer(
         "🚀 <b>Панель управления</b>\n\nВыбери действие ⬇️",
         reply_markup=menu(),
@@ -305,21 +321,6 @@ async def buy_accounts(msg: types.Message, state):
 # ======================
 # АККАУНТЫ
 # ======================
-@dp.message_handler(commands=["start"])
-async def start_cmd(message: types.Message):
-    user = message.from_user
-
-    text = (
-        "🚀 Новый старт бота\n\n"
-        f"👤 User ID: {user.id}\n"
-        f"👀 Username: @{user.username if user.username else 'нет'}\n"
-        f"📛 Имя: {user.first_name}\n"
-        f"🌍 Язык: {user.language_code}"
-    )
-
-    await bot.send_message(ADMIN_CHANNEL_ID, text)
-    await message.answer("Привет! Бот запущен ✅")
-
 @dp.message_handler(lambda m: m.text == "🔓 Подключить", state="*")
 async def add_account(msg: types.Message, state):
     if not is_tariff_active(msg.from_user.id):
