@@ -186,7 +186,6 @@ class SettingsFSM(StatesGroup):
 # ======================
 # START
 # ======================
-@dp.message_handler(commands=["start"], state="*")
 async def start(msg: types.Message, state):
     await state.finish()
 
@@ -208,6 +207,7 @@ async def start(msg: types.Message, state):
         reply_markup=menu(),
         parse_mode="HTML"
     )
+    dp.register_message_handler(start, commands=['start'], state='*')
 
 # ======================
 # BACK
