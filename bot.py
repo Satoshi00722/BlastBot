@@ -643,12 +643,19 @@ async def start_work(msg: types.Message, state):
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
-    async def progress(sent, errors):
-        await status.edit_text(
-            f"🚀 Рассылка запущена\n"
+   async def progress(sent, errors, info=""):
+    try:
+        text = (
+            "🚀 Рассылка запущена\n"
             f"📤 Отправлено: {sent}\n"
             f"❌ Ошибки: {errors}"
         )
+        if info:
+            text += f"\n\n⚠️ {info}"
+
+        await status.edit_text(text)
+    except:
+        pass
 
     asyncio.create_task(spam_worker(path, stop_flag, progress))
 
@@ -834,6 +841,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
