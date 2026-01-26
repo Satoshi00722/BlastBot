@@ -643,7 +643,7 @@ async def start_work(msg: types.Message, state):
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
-   async def progress(sent, errors, info=""):
+async def progress(sent, errors, info=""):
     try:
         text = (
             "🚀 Рассылка запущена\n"
@@ -652,12 +652,9 @@ async def start_work(msg: types.Message, state):
         )
         if info:
             text += f"\n\n⚠️ {info}"
-
         await status.edit_text(text)
     except:
         pass
-
-    asyncio.create_task(spam_worker(path, stop_flag, progress))
 
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
 async def stop(msg: types.Message, state):
