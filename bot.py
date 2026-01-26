@@ -611,15 +611,10 @@ async def delete_account(msg: types.Message, state):
 @dp.message_handler(lambda m: m.text == "▶️ Начать работу", state="*")
 async def start_work(msg: types.Message, state):
     await state.finish()
-
     uid = msg.from_user.id
+
     if not is_tariff_active(uid):
-        await msg.answer(
-            "⛔ <b>Тариф не активен</b>\n\n"
-            "💳 Купите тариф, чтобы запускать рассылку",
-            parse_mode="HTML",
-            reply_markup=menu()
-        )
+        await msg.answer("⛔ Тариф не активен", reply_markup=menu())
         return
 
     path = user_dir(uid)
@@ -643,18 +638,24 @@ async def start_work(msg: types.Message, state):
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
-async def progress(sent, errors, info=""):
-    try:
-        text = (
-            "🚀 Рассылка запущена\n"
-            f"📤 Отправлено: {sent}\n"
-            f"❌ Ошибки: {errors}"
-        )
-        if info:
-            text += f"\n\n⚠️ {info}"
-        await status.edit_text(text)
-    except:
-        pass
+    async def progress(sent, errors, info=""):
+        try:
+            text = (
+                "🚀 Рассылка запущена\n"
+                f"📤 Отправлено: {sent}\n"
+                f"❌ Ошибки: {errors}"
+            )
+            if info:
+                text += f"\n\n⚠️ {info}"
+            await status.edit_text(text)
+        except:
+            pass
+
+    task = asyncio.create_task(
+        spam_worker(path, stop_flag, progress)
+    )
+
+    workers[uid]["task"] = task
 
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
 async def stop(msg: types.Message, state):
@@ -838,6 +839,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
