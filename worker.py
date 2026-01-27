@@ -28,6 +28,8 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
     sent = 0
     errors_count = 0
 
+    blocked_accounts = set()  # 🚫 больше не используем
+
     while not stop_flag["stop"]:
         session_files = [
             f for f in os.listdir(sessions_dir)
@@ -40,6 +42,11 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                 break
 
             acc_name = sess.replace(".session", "")
+
+            # ⛔ аккаунт уже исключён
+            if acc_name in blocked_accounts:
+                continue
+
             client = TelegramClient(
                 f"{sessions_dir}/{acc_name}",
                 API_ID,
@@ -72,42 +79,57 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await client.send_message(dialog.id, message)
                         sent += 1
                         sent_from_account += 1
-
                         await progress_cb(sent, errors_count)
-                        await asyncio.sleep(random.randint(delay_groups, delay_groups + 3))
 
+                        await asyncio.sleep(
+                            random.randint(delay_groups, delay_groups + 3)
+                        )
+
+                    # 🚫 СПАМ-БЛОК — АККАУНТ УМЕР
                     except errors.PeerFloodError:
                         errors_count += 1
+                        blocked_accounts.add(acc_name)
+
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"Аккаунт {acc_name} 🚫 СПАМ-БЛОК"
+                            f"🚫 СПАМ-БЛОК → {acc_name} (исключён)"
                         )
                         break
 
-                    except errors.FloodWaitError as e:
+                    # ❄️ ПОЛНАЯ ЗАМОРОЗКА
+                    except errors.FloodWaitError:
                         errors_count += 1
+                        blocked_accounts.add(acc_name)
+
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"Аккаунт {acc_name} ⏳ Flood {e.seconds}s"
+                            f"❄️ ЗАМОРОЖЕН → {acc_name} (исключён)"
                         )
                         break
 
-                    except errors.ChatWriteForbiddenError:
-                        errors_count += 1
+                    # ❌ нет прав / приват / бан в чате — ПРОСТО СКИП
+                    except (
+                        errors.ChatWriteForbiddenError,
+                        errors.ChannelPrivateError,
+                        errors.UserBannedInChannelError
+                    ):
                         continue
 
+                    # ⚠️ прочая мелочь
                     except Exception:
                         errors_count += 1
                         await asyncio.sleep(2)
 
             except Exception:
                 errors_count += 1
+                blocked_accounts.add(acc_name)
+
                 await progress_cb(
                     sent,
                     errors_count,
-                    f"Аккаунт {acc_name} ❌ ошибка запуска"
+                    f"❌ АККАУНТ {acc_name} УПАЛ ПРИ СТАРТЕ (исключён)"
                 )
 
             finally:
@@ -120,6 +142,8 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
+
 
 
 
