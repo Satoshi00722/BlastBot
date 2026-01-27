@@ -601,6 +601,13 @@ async def delete_account(msg: types.Message, state):
             json.dump(accounts, f, indent=2)
 
         await msg.answer("✅ Аккаунт полностью удалён")
+        # 🧹 удаляем аккаунт из логов (если он был проблемным)
+        if uid in workers and "logs" in workers[uid]:
+            workers[uid]["logs"] = [
+                l for l in workers[uid]["logs"]
+                if l.get("phone") != phone
+            ]
+
         # 🧹 если аккаунтов больше нет — чистим логи
         remaining_accounts = get_accounts_info(uid)
         if not remaining_accounts:
@@ -652,19 +659,33 @@ async def start_work(msg: types.Message, state):
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
-    async def progress(sent, errors, info=""):
+    async def progress(sent, errors, info=None):
         try:
-            # 🧾 сохраняем лог
-            if info:
-                if info not in workers[uid]["logs"]:
+            # 🧾 сохраняем лог (теперь dict)
+            if isinstance(info, dict):
+                phone = info.get("phone")
+
+                # не дублируем один и тот же аккаунт
+                if phone and phone not in [l["phone"] for l in workers[uid]["logs"]]:
                     workers[uid]["logs"].append(info)
 
             logs_text = ""
             if workers[uid]["logs"]:
+                lines = []
+                for i, log in enumerate(workers[uid]["logs"], 1):
+                    emoji = {
+                        "spam_block": "🚫 СПАМ-БЛОК",
+                        "freeze": "❄️ ЗАМОРОЖЕН",
+                        "dead": "❌ МЁРТВЫЙ",
+                        "error": "⚠️ ОШИБКА"
+                    }.get(log.get("reason"), "❓ ПРОБЛЕМА")
+
+                    lines.append(f"{i}. {emoji} — <b>{log['phone']}</b>")
+
                 logs_text = (
                         "\n\n🧾 <b>Проблемные аккаунты:</b>\n"
-                        + "\n".join(workers[uid]["logs"])
-                        + "\n\n<i>Удалите номер из личного кабинета командой <b>del</b></i>"
+                        + "\n".join(lines) +
+                        "\n\n<i>👉 Зайдите в личный кабинет и удалите замороженный аккаунт</i>"
                 )
 
             text = (
@@ -675,7 +696,7 @@ async def start_work(msg: types.Message, state):
             )
 
             await status.edit_text(text, parse_mode="HTML")
-        except:
+        except Exception:
             pass
 
     task = asyncio.create_task(
