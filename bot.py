@@ -628,8 +628,9 @@ async def start_work(msg: types.Message, state):
         await msg.answer("⚠️ Рассылка уже запущена", reply_markup=menu())
         return
 
-    if not get_sessions(uid):
-        await msg.answer("❌ Нет аккаунтов", reply_markup=menu())
+    accounts = get_accounts_info(uid)
+    if not accounts:
+        await msg.answer("❌ Нет подключённых аккаунтов", reply_markup=menu())
         return
     if not os.path.exists(f"{path}/message.txt"):
         await msg.answer("❌ Нет текста", reply_markup=menu())
@@ -640,6 +641,7 @@ async def start_work(msg: types.Message, state):
 
     # 🧹 если уже был воркер — очищаем старые логи
     if uid in workers:
+        # всегда чистый старт
         workers.pop(uid, None)
 
     stop_flag = {
@@ -864,7 +866,6 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
-
 
 
 
