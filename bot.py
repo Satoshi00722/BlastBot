@@ -153,7 +153,7 @@ def menu():
     kb.row("🔓 Подключить", "📝 Текст")
     kb.row("⚙️ Настройки", "👤 Личный кабинет")
     kb.row("💳 Тарифы")
-    kb.row("📘 Пользование", "🛒 Купить аккаунты")
+    kb.row("📘 Для Новичка", "🛒 Купить аккаунты")
     kb.add("▶️ Начать работу")
     kb.add("⛔ Остановить")
     return kb
@@ -195,23 +195,38 @@ async def start(msg: types.Message, state):
     user = msg.from_user
     username = f"@{user.username}" if user.username else "нет"
 
-    text = (
-        "🚀 Новый старт бота\n\n"
+    # уведомление админу (оставляем)
+    await bot.send_message(
+        ADMIN_CHANNEL_ID,
+        f"🚀 Новый старт бота\n\n"
         f"👤 User ID: {user.id}\n"
         f"👀 Username: {username}\n"
-        f"📛 Имя: {user.first_name}\n"
-        f"🌍 Язык: {user.language_code}"
+        f"📛 Имя: {user.first_name}"
     )
 
-    # 🔔 УВЕДОМЛЕНИЕ В КАНАЛ
-    await bot.send_message(ADMIN_CHANNEL_ID, text)
-
-    # 👤 ОТВЕТ ПОЛЬЗОВАТЕЛЮ
-    await msg.answer(
-        "🚀 <b>Панель управления</b>\n\nВыбери действие ⬇️",
-        reply_markup=menu(),
-        parse_mode="HTML"
+    text = (
+        "👋 <b>Добро пожаловать в BlastBot</b>\n\n"
+        "🚀 Telegram-сервис для автоматической рассылки сообщений\n"
+        "в чаты и группы с нескольких аккаунтов.\n\n"
+        "⚙️ <b>Возможности бота:</b>\n"
+        "• рассылка в группы и чаты\n"
+        "• работа с несколькими аккаунтами\n"
+        "• гибкие настройки скорости и лимитов\n"
+        "• защита от спам-блоков\n"
+        "• удобный личный кабинет\n\n"
+        "🎁 <b>Бесплатный тест — 5 часов</b>\n"
+        "Попробуйте сервис без оплаты.\n\n"
+        "⬇️ Выберите действие ниже"
     )
+
+    with open("welcome.jpg", "rb") as photo:
+        await bot.send_photo(
+            chat_id=msg.chat.id,
+            photo=photo,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=menu()
+        )
 
 # ======================
 # BACK
@@ -225,7 +240,7 @@ async def back(msg: types.Message, state):
 # ======================
 # ПОЛЬЗОВАНИЕ
 # ======================
-@dp.message_handler(lambda m: m.text == "📘 Пользование", state="*")
+@dp.message_handler(lambda m: m.text == "📘 Для Новичка", state="*")
 async def usage(msg: types.Message, state):
     await state.finish()
 
@@ -233,7 +248,7 @@ async def usage(msg: types.Message, state):
     kb.add(
         InlineKeyboardButton(
             text="📖 Открыть инструкцию",
-            url="https://telegra.ph/Dannyj-material-yavlyaetsya-oficialnym-rukovodstvom-po-ispolzovaniyu-servisa-BlastBot-01-23"
+            url="https://telegra.ph/BlastBot--rukovodstvo-dlya-novichkov-01-27-2"
         )
     )
 
@@ -887,9 +902,6 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
-
-
-
 
 
 
