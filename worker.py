@@ -27,7 +27,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
     sent = 0
     errors_count = 0
 
-    blocked_accounts = set()  # 🚫 больше не используем
+    blocked_accounts = set()  # 🚫 исключаем проблемные аккаунты
 
     while not stop_flag["stop"]:
         session_files = [
@@ -78,6 +78,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await client.send_message(dialog.id, message)
                         sent += 1
                         sent_from_account += 1
+
                         await progress_cb(sent, errors_count)
 
                         await asyncio.sleep(
@@ -92,7 +93,10 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"🚫 СПАМ-БЛОК → {acc_name}"
+                            {
+                                "phone": acc_name,
+                                "reason": "spam_block"
+                            }
                         )
                         break
 
@@ -104,11 +108,14 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"❄️ ЗАМОРОЖЕН → {acc_name}"
+                            {
+                                "phone": acc_name,
+                                "reason": "freeze"
+                            }
                         )
                         break
 
-                    # ❌ проблемы конкретного чата — просто скип
+                    # ❌ проблемы конкретного чата — просто пропуск
                     except (
                         errors.ChatWriteForbiddenError,
                         errors.ChannelPrivateError,
@@ -116,15 +123,18 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                     ):
                         continue
 
-                    # ⚠️ прочее
-                    except Exception as e:
+                    # ⚠️ прочие ошибки аккаунта
+                    except Exception:
                         errors_count += 1
                         blocked_accounts.add(acc_name)
 
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"❌ МЁРТВЫЙ АККАУНТ → {acc_name}"
+                            {
+                                "phone": acc_name,
+                                "reason": "dead"
+                            }
                         )
                         break
 
@@ -135,7 +145,10 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                 await progress_cb(
                     sent,
                     errors_count,
-                    f"❌ ОШИБКА АККАУНТА → {acc_name}"
+                    {
+                        "phone": acc_name,
+                        "reason": "error"
+                    }
                 )
 
             finally:
