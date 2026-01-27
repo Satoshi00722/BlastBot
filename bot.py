@@ -601,12 +601,11 @@ async def delete_account(msg: types.Message, state):
             json.dump(accounts, f, indent=2)
 
         await msg.answer("✅ Аккаунт полностью удалён")
-        # 🧹 удаляем аккаунт из логов рассылки
-        if uid in workers and "logs" in workers[uid]:
-            workers[uid]["logs"] = [
-                log for log in workers[uid]["logs"]
-                if phone not in log
-            ]
+        # 🧹 если аккаунтов больше нет — чистим логи
+        remaining_accounts = get_accounts_info(uid)
+        if not remaining_accounts:
+            if uid in workers and "logs" in workers[uid]:
+                workers[uid]["logs"].clear()
 
     except Exception as e:
         await msg.answer(f"❌ Ошибка удаления: {e}")
@@ -639,9 +638,13 @@ async def start_work(msg: types.Message, state):
         await msg.answer("❌ Нет настроек", reply_markup=menu())
         return
 
+    # 🧹 если уже был воркер — очищаем старые логи
+    if uid in workers:
+        workers.pop(uid, None)
+
     stop_flag = {
         "stop": False,
-        "logs": []  # 🧾 тут будут проблемные аккаунты
+        "logs": []  # чистый лог при новом старте
     }
     workers[uid] = stop_flag
 
@@ -861,6 +864,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
