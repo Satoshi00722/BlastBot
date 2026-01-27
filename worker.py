@@ -12,7 +12,6 @@ blacklist_keywords = [
     "no ads",
     "без рекламы",
     "no advertising",
-    "bitswap chat"
 ]
 
 
@@ -85,7 +84,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                             random.randint(delay_groups, delay_groups + 3)
                         )
 
-                    # 🚫 СПАМ-БЛОК — АККАУНТ УМЕР
+                    # 🚫 СПАМ-БЛОК
                     except errors.PeerFloodError:
                         errors_count += 1
                         blocked_accounts.add(acc_name)
@@ -93,7 +92,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"🚫 СПАМ-БЛОК → {acc_name} (Нужно удалить)"
+                            f"🚫 СПАМ-БЛОК → {acc_name}"
                         )
                         break
 
@@ -105,11 +104,11 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"❄️ ЗАМОРОЖЕН → {acc_name} (Нужно удалить)"
+                            f"❄️ ЗАМОРОЖЕН → {acc_name}"
                         )
                         break
 
-                    # ❌ нет прав / приват / бан в чате — ПРОСТО СКИП
+                    # ❌ проблемы конкретного чата — просто скип
                     except (
                         errors.ChatWriteForbiddenError,
                         errors.ChannelPrivateError,
@@ -117,7 +116,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                     ):
                         continue
 
-                    # ⚠️ прочая мелочь
+                    # ⚠️ прочее
                     except Exception:
                         errors_count += 1
                         await asyncio.sleep(2)
@@ -129,7 +128,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                 await progress_cb(
                     sent,
                     errors_count,
-                    f"❌ АККАУНТ {acc_name} УПАЛ ПРИ СТАРТЕ (Нужно удалить)"
+                    f"❌ ОШИБКА АККАУНТА → {acc_name}"
                 )
 
             finally:
@@ -142,6 +141,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
 
 
 
