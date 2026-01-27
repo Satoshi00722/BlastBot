@@ -129,7 +129,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                 await progress_cb(
                     sent,
                     errors_count,
-                    f"❌ АККАУНТ {acc_name} УПАЛ ПРИ СТАРТЕ (исключён)"
+                    f"❌ АККАУНТ {acc_name} УПАЛ ПРИ СТАРТЕ (Нужно удалить)"
                 )
 
             finally:
@@ -142,6 +142,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
 
 
 
