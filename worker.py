@@ -117,9 +117,16 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         continue
 
                     # ⚠️ прочее
-                    except Exception:
+                    except Exception as e:
                         errors_count += 1
-                        await asyncio.sleep(2)
+                        blocked_accounts.add(acc_name)
+
+                        await progress_cb(
+                            sent,
+                            errors_count,
+                            f"❌ МЁРТВЫЙ АККАУНТ → {acc_name}"
+                        )
+                        break
 
             except Exception:
                 errors_count += 1
@@ -141,6 +148,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
 
 
 
