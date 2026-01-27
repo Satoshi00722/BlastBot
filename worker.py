@@ -93,7 +93,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"🚫 СПАМ-БЛОК → {acc_name} (исключён)"
+                            f"🚫 СПАМ-БЛОК → {acc_name} (Нужно удалить)"
                         )
                         break
 
@@ -105,7 +105,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                         await progress_cb(
                             sent,
                             errors_count,
-                            f"❄️ ЗАМОРОЖЕН → {acc_name} (исключён)"
+                            f"❄️ ЗАМОРОЖЕН → {acc_name} (Нужно удалить)"
                         )
                         break
 
@@ -142,6 +142,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
 
 
 
