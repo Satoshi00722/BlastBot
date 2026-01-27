@@ -601,6 +601,12 @@ async def delete_account(msg: types.Message, state):
             json.dump(accounts, f, indent=2)
 
         await msg.answer("✅ Аккаунт полностью удалён")
+        # 🧹 удаляем аккаунт из логов рассылки
+        if uid in workers and "logs" in workers[uid]:
+            workers[uid]["logs"] = [
+                log for log in workers[uid]["logs"]
+                if phone not in log
+            ]
 
     except Exception as e:
         await msg.answer(f"❌ Ошибка удаления: {e}")
@@ -633,21 +639,37 @@ async def start_work(msg: types.Message, state):
         await msg.answer("❌ Нет настроек", reply_markup=menu())
         return
 
-    stop_flag = {"stop": False}
+    stop_flag = {
+        "stop": False,
+        "logs": []  # 🧾 тут будут проблемные аккаунты
+    }
     workers[uid] = stop_flag
 
     status = await msg.answer("🚀 Рассылка запущена\n📤 Отправлено: 0")
 
     async def progress(sent, errors, info=""):
         try:
-            text = (
-                "🚀 Рассылка запущена\n"
-                f"📤 Отправлено: {sent}\n"
-                f"❌ Ошибки: {errors}"
-            )
+            # 🧾 сохраняем лог
             if info:
-                text += f"\n\n⚠️ {info}"
-            await status.edit_text(text)
+                if info not in workers[uid]["logs"]:
+                    workers[uid]["logs"].append(info)
+
+            logs_text = ""
+            if workers[uid]["logs"]:
+                logs_text = (
+                        "\n\n🧾 <b>Проблемные аккаунты:</b>\n"
+                        + "\n".join(workers[uid]["logs"])
+                        + "\n\n<i>Удалите номер из личного кабинета командой <b>del</b></i>"
+                )
+
+            text = (
+                "🚀 <b>Рассылка запущена</b>\n"
+                f"📤 Отправлено: <b>{sent}</b>\n"
+                f"❌ Ошибки: <b>{errors}</b>"
+                f"{logs_text}"
+            )
+
+            await status.edit_text(text, parse_mode="HTML")
         except:
             pass
 
@@ -839,6 +861,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
