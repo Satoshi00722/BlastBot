@@ -14,7 +14,7 @@ blacklist_keywords = [
     "no advertising",
 ]
 
-MAX_FAILS = 15  # 🔥 15 подряд неудач = СПАМ-БЛОК
+MAX_FAILS = 15  # для обычных ошибок
 
 
 async def spam_worker(user_dir, stop_flag, progress_cb):
@@ -29,7 +29,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
     sent = 0
     errors_count = 0
 
-    blocked_accounts = set()  # 🚫 уже помеченные аккаунты
+    blocked_accounts = set()
 
     while not stop_flag["stop"]:
         session_files = [
@@ -44,7 +44,6 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
 
             acc_name = sess.replace(".session", "")
 
-            # если аккаунт уже в спаме — просто пропускаем
             if acc_name in blocked_accounts:
                 continue
 
@@ -54,7 +53,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                 API_HASH
             )
 
-            fail_streak = 0  # 🔢 подряд неудачных отправок
+            fail_streak = 0
 
             try:
                 await client.start()
@@ -79,12 +78,11 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                            any(k in chat_about.lower() for k in blacklist_keywords):
                             continue
 
-                        # ✅ успешная отправка
                         await client.send_message(dialog.id, message)
 
                         sent += 1
                         sent_from_account += 1
-                        fail_streak = 0  # сброс счётчика
+                        fail_streak = 0
 
                         await progress_cb(sent, errors_count)
 
@@ -92,29 +90,11 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                             random.randint(delay_groups, delay_groups + 3)
                         )
 
-                    # 🚷 нельзя писать — НЕ считаем ошибкой
-                    except (
-                        errors.ChatWriteForbiddenError,
-                        errors.ChannelPrivateError,
-                        errors.UserBannedInChannelError
-                    ):
-                        continue
-
-                    # 🚫 флуд / спам
+                    # 🚫 СПАМ-БЛОК — СРАЗУ
                     except (errors.PeerFloodError, errors.FloodWaitError):
-                        fail_streak += 1
                         errors_count += 1
-
-                    # ⚠️ любая другая ошибка
-                    except Exception:
-                        fail_streak += 1
-                        errors_count += 1
-
-                    # 🔥 ПРОВЕРКА НА СПАМ-БЛОК
-                    if fail_streak >= MAX_FAILS:
                         blocked_accounts.add(acc_name)
 
-                        # ⚠️ ВАЖНО: лог шлём ОДИН РАЗ
                         await progress_cb(
                             sent,
                             errors_count,
@@ -123,7 +103,35 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                                 "reason": "spam_block"
                             }
                         )
-                        break  # ⛔ выходим ТОЛЬКО из этого аккаунта
+                        break  # ⛔ ТОЛЬКО ЭТОТ АККАУНТ
+
+                    # 🚷 нельзя писать — игнор
+                    except (
+                        errors.ChatWriteForbiddenError,
+                        errors.ChannelPrivateError,
+                        errors.UserBannedInChannelError
+                    ):
+                        continue
+
+                    # ⚠️ прочие ошибки — считаем
+                    except Exception:
+                        fail_streak += 1
+                        errors_count += 1
+
+                        if fail_streak >= MAX_FAILS:
+                            blocked_accounts.add(acc_name)
+
+                            await progress_cb(
+                                sent,
+                                errors_count,
+                                {
+                                    "phone": acc_name,
+                                    "reason": "spam_block"
+                                }
+                            )
+                            break
+                        else:
+                            continue
 
             except Exception:
                 errors_count += 1
@@ -148,6 +156,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
 
 
 
