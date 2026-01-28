@@ -588,8 +588,14 @@ async def cabinet(msg: types.Message, state):
 async def delete_account(msg: types.Message, state):
     await state.finish()
 
+    cmd = msg.text.lower().strip()
+
+    # 👉 если del all — передаём дальше
+    if cmd in ["del all", "del_all"]:
+        return
+
     try:
-        idx = int(msg.text.split()[1]) - 1
+        idx = int(cmd.split()[1]) - 1
         uid = msg.from_user.id
         path = user_dir(uid)
 
@@ -609,30 +615,18 @@ async def delete_account(msg: types.Message, state):
 
         phone = accounts[idx]["phone"]
 
-        # удаляем session
         for f in os.listdir(sessions_path):
             if f.startswith(phone):
                 os.remove(os.path.join(sessions_path, f))
 
-        # удаляем из accounts.json
         accounts.pop(idx)
         with open(accounts_file, "w") as f:
             json.dump(accounts, f, indent=2)
 
         await msg.answer("✅ Аккаунт полностью удалён")
-        # 🧹 удаляем аккаунт из логов (если он был проблемным)
-        if uid in workers and "logs" in workers[uid]:
-            workers[uid]["logs"] = [
-                l for l in workers[uid]["logs"]
-                if l.get("phone") != phone
-            ]
 
-        # 🧹 если аккаунтов больше нет — чистим логи
-        remaining_accounts = get_accounts_info(uid)
-        if not remaining_accounts:
-            if uid in workers and "logs" in workers[uid]:
-                workers[uid]["logs"].clear()
-
+    except ValueError:
+        await msg.answer("❌ Используй формат: del 1")
     except Exception as e:
         await msg.answer(f"❌ Ошибка удаления: {e}")
 
@@ -961,6 +955,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
