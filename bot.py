@@ -1,6 +1,5 @@
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup
-from aiogram.types import KeyboardButton
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -169,27 +168,7 @@ async def reset_login(uid):
     if client:
         await client.disconnect()
         login_clients.pop(uid, None)
-
-def phone_kb():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.row(KeyboardButton("+1"), KeyboardButton("+44"), KeyboardButton("+7"))
-    kb.row(KeyboardButton("1"), KeyboardButton("2"), KeyboardButton("3"))
-    kb.row(KeyboardButton("4"), KeyboardButton("5"), KeyboardButton("6"))
-    kb.row(KeyboardButton("7"), KeyboardButton("8"), KeyboardButton("9"))
-    kb.row(KeyboardButton("0"))
-    kb.add("⬅️ Назад")
-    return kb
-
-
-def code_kb():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.row(KeyboardButton("1"), KeyboardButton("2"), KeyboardButton("3"))
-    kb.row(KeyboardButton("4"), KeyboardButton("5"), KeyboardButton("6"))
-    kb.row(KeyboardButton("7"), KeyboardButton("8"), KeyboardButton("9"))
-    kb.row(KeyboardButton("0"))
-    kb.add("⬅️ Назад")
-    return kb
-
+        
 # ======================
 # STATES
 # ======================
@@ -984,6 +963,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
