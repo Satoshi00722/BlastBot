@@ -364,7 +364,7 @@ async def add_account(msg: types.Message, state):
     await state.finish()
     await msg.answer(
         "📱 Введи номер телефона: (+1)\nЖди код ",
-        reply_markup=phone_kb()
+        reply_markup=back_kb()
     )
     await PhoneState.phone.set()
 
@@ -389,7 +389,7 @@ async def get_phone(msg: types.Message, state):
 
     await msg.answer(
         "🔐 Введи код из Telegram\n",
-        reply_markup=code_kb()
+        reply_markup=back_kb()
     )
     await PhoneState.code.set()
 
@@ -963,6 +963,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
