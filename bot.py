@@ -3,7 +3,6 @@ from aiogram.types import ReplyKeyboardMarkup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.dispatcher.handler import SkipHandler
 from cryptobot import create_invoice, get_invoice
 from config import CRYPTOBOT_TOKEN
 import os, json, asyncio, re
@@ -585,59 +584,13 @@ async def cabinet(msg: types.Message, state):
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
 
-@dp.message_handler(lambda m: m.text.lower().startswith("del "), state="*")
-async def delete_account(msg: types.Message, state):
-    await state.finish()
-
-    cmd = msg.text.lower().strip()
-
-    # 👉 если del all — передаём дальше
-    if cmd in ["del all", "del_all"]:
-    raise SkipHandler()
-
-    try:
-        idx = int(cmd.split()[1]) - 1
-        uid = msg.from_user.id
-        path = user_dir(uid)
-
-        accounts_file = f"{path}/accounts.json"
-        sessions_path = f"{path}/sessions"
-
-        if not os.path.exists(accounts_file):
-            await msg.answer("❌ Нет аккаунтов")
-            return
-
-        with open(accounts_file, "r") as f:
-            accounts = json.load(f)
-
-        if idx < 0 or idx >= len(accounts):
-            await msg.answer("❌ Неверный номер аккаунта")
-            return
-
-        phone = accounts[idx]["phone"]
-
-        for f in os.listdir(sessions_path):
-            if f.startswith(phone):
-                os.remove(os.path.join(sessions_path, f))
-
-        accounts.pop(idx)
-        with open(accounts_file, "w") as f:
-            json.dump(accounts, f, indent=2)
-
-        await msg.answer("✅ Аккаунт полностью удалён")
-
-    except ValueError:
-        await msg.answer("❌ Используй формат: del 1")
-    except Exception as e:
-        await msg.answer(f"❌ Ошибка удаления: {e}")
-
 @dp.message_handler(lambda m: m.text.lower() in ["del all", "del_all"], state="*")
 async def delete_all_accounts(msg: types.Message, state):
     await state.finish()
     uid = msg.from_user.id
     path = user_dir(uid)
 
-    # ⛔ Останавливаем рассылку
+    # ⛔ останавливаем рассылку
     if uid in workers:
         workers[uid]["stop"] = True
         task = workers[uid].get("task")
@@ -656,9 +609,9 @@ async def delete_all_accounts(msg: types.Message, state):
     # 🧹 удаляем sessions
     sessions_path = f"{path}/sessions"
     if os.path.exists(sessions_path):
-        for f in os.listdir(sessions_path):
+        for file in os.listdir(sessions_path):
             try:
-                os.remove(os.path.join(sessions_path, f))
+                os.remove(os.path.join(sessions_path, file))
             except:
                 pass
 
@@ -667,11 +620,11 @@ async def delete_all_accounts(msg: types.Message, state):
     if os.path.exists(acc_file):
         os.remove(acc_file)
 
-    # 🧹 подчистка Telethon journal
-    for f in os.listdir(path):
-        if f.endswith(".session-journal"):
+    # 🧹 чистим telethon journal
+    for file in os.listdir(path):
+        if file.endswith(".session-journal"):
             try:
-                os.remove(os.path.join(path, f))
+                os.remove(os.path.join(path, file))
             except:
                 pass
 
@@ -685,6 +638,60 @@ async def delete_all_accounts(msg: types.Message, state):
         parse_mode="HTML",
         reply_markup=menu()
     )
+
+@dp.message_handler(
+    lambda m: m.text.lower().startswith("del ")
+    and len(m.text.split()) == 2
+    and m.text.split()[1].isdigit(),
+    state="*"
+)
+async def delete_account(msg: types.Message, state):
+    await state.finish()
+
+    idx = int(msg.text.split()[1]) - 1
+    uid = msg.from_user.id
+    path = user_dir(uid)
+
+    accounts_file = f"{path}/accounts.json"
+    sessions_path = f"{path}/sessions"
+
+    if not os.path.exists(accounts_file):
+        await msg.answer("❌ Нет аккаунтов")
+        return
+
+    with open(accounts_file, "r") as f:
+        accounts = json.load(f)
+
+    if idx < 0 or idx >= len(accounts):
+        await msg.answer("❌ Неверный номер аккаунта")
+        return
+
+    phone = accounts[idx]["phone"]
+
+    # удаляем session файлы
+    for file in os.listdir(sessions_path):
+        if file.startswith(phone):
+            try:
+                os.remove(os.path.join(sessions_path, file))
+            except:
+                pass
+
+    # удаляем из accounts.json
+    accounts.pop(idx)
+    with open(accounts_file, "w") as f:
+        json.dump(accounts, f, indent=2)
+
+    # чистим логи
+    if uid in workers and "logs" in workers[uid]:
+        workers[uid]["logs"] = [
+            l for l in workers[uid]["logs"]
+            if l.get("phone") != phone
+        ]
+
+    if not accounts and uid in workers and "logs" in workers[uid]:
+        workers[uid]["logs"].clear()
+
+    await msg.answer("✅ Аккаунт полностью удалён", reply_markup=menu())
 
 # ======================
 # START / STOP WORK
@@ -956,10 +963,6 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
-
-
-
-
 
 
 
