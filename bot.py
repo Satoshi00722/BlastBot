@@ -578,8 +578,8 @@ async def cabinet(msg: types.Message, state):
 
     text += (
         "\n❌ Удаление аккаунта:\n"
-        "<code>del 1</code>\n"
-        "<code>del all</code> — удалить все аккаунты полностью"
+        "<code>del 1</code> - удалить нужный аккаунт 1,2,3...\n"
+        "<code>del all</code> - удалить все аккаунты полностью"
     )
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
@@ -963,6 +963,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
