@@ -3,6 +3,7 @@ from aiogram.types import ReplyKeyboardMarkup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.dispatcher.handler import SkipHandler
 from cryptobot import create_invoice, get_invoice
 from config import CRYPTOBOT_TOKEN
 import os, json, asyncio, re
@@ -592,7 +593,7 @@ async def delete_account(msg: types.Message, state):
 
     # 👉 если del all — передаём дальше
     if cmd in ["del all", "del_all"]:
-        return
+    raise SkipHandler()
 
     try:
         idx = int(cmd.split()[1]) - 1
@@ -955,6 +956,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
