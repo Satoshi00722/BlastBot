@@ -576,7 +576,11 @@ async def cabinet(msg: types.Message, state):
     else:
         text += "❌ Настройки не заданы\n"
 
-    text += "\n❌ Удаление аккаунта:\n<code>del 1</code>"
+    text += (
+        "\n❌ Удаление аккаунта:\n"
+        "<code>del 1</code>\n"
+        "<code>del all</code> — удалить все аккаунты полностью"
+    )
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
 
@@ -631,6 +635,61 @@ async def delete_account(msg: types.Message, state):
 
     except Exception as e:
         await msg.answer(f"❌ Ошибка удаления: {e}")
+
+@dp.message_handler(lambda m: m.text.lower() in ["del all", "del_all"], state="*")
+async def delete_all_accounts(msg: types.Message, state):
+    await state.finish()
+    uid = msg.from_user.id
+    path = user_dir(uid)
+
+    # ⛔ Останавливаем рассылку
+    if uid in workers:
+        workers[uid]["stop"] = True
+        task = workers[uid].get("task")
+        if task:
+            task.cancel()
+        workers.pop(uid, None)
+
+    # 🧹 отключаем login client
+    if uid in login_clients:
+        try:
+            await login_clients[uid].disconnect()
+        except:
+            pass
+        login_clients.pop(uid, None)
+
+    # 🧹 удаляем sessions
+    sessions_path = f"{path}/sessions"
+    if os.path.exists(sessions_path):
+        for f in os.listdir(sessions_path):
+            try:
+                os.remove(os.path.join(sessions_path, f))
+            except:
+                pass
+
+    # 🧹 удаляем accounts.json
+    acc_file = f"{path}/accounts.json"
+    if os.path.exists(acc_file):
+        os.remove(acc_file)
+
+    # 🧹 подчистка Telethon journal
+    for f in os.listdir(path):
+        if f.endswith(".session-journal"):
+            try:
+                os.remove(os.path.join(path, f))
+            except:
+                pass
+
+    await msg.answer(
+        "🧹 <b>Все аккаунты полностью удалены</b>\n\n"
+        "✅ Session-файлы\n"
+        "✅ accounts.json\n"
+        "✅ кеш и память\n"
+        "✅ активные задачи\n\n"
+        "Можно подключать аккаунты заново 👌",
+        parse_mode="HTML",
+        reply_markup=menu()
+    )
 
 # ======================
 # START / STOP WORK
