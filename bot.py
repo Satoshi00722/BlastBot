@@ -272,7 +272,7 @@ async def usage(msg: types.Message, state):
     kb.add(
         InlineKeyboardButton(
             text="📖 Открыть инструкцию",
-            url="https://telegra.ph/BlastBot--rukovodstvo-dlya-novichkov-01-27-2"
+            url="https://telegra.ph/BlastBot--rukovodstvo-dlya-novichkov-02-01"
         )
     )
 
@@ -1038,6 +1038,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
