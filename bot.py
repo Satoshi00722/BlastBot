@@ -494,30 +494,33 @@ async def text(msg: types.Message, state):
 async def save_text(msg: types.Message, state):
     path = user_dir(msg.from_user.id)
 
-    # ЕСЛИ ПЕРЕСЛАННОЕ СООБЩЕНИЕ → FORWARD
-    if msg.forward_from or msg.forward_from_chat:
+    # 📨 ЕСЛИ ПЕРЕСЛАНО ИЗ КАНАЛА
+    if msg.forward_from_chat:
+        if msg.forward_from_chat.type != "channel":
+            await msg.answer(
+                "❌ Перешли сообщение ИМЕННО ИЗ КАНАЛА",
+                reply_markup=menu()
+            )
+            await state.finish()
+            return
+
         data = {
             "type": "forward",
-            "from_chat_id": (
-                msg.forward_from_chat.id
-                if msg.forward_from_chat
-                else msg.forward_from.id
-            ),
+            "from_chat_id": msg.forward_from_chat.id,
             "message_id": msg.forward_from_message_id
         }
-        info = "📨 Пересланное сообщение (FORWARD)"
+
+    # ✍️ ОБЫЧНЫЙ ТЕКСТ
     else:
-        # ИНАЧЕ → ПРОСТО ТЕКСТ
         data = {
-            "type": "text",
+            "type": "copy",
             "text": msg.text or msg.caption or ""
         }
-        info = "✍️ Обычный текст (COPY)"
 
     with open(f"{path}/message.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
-    await msg.answer(f"✅ Сообщение сохранено\n{info}", reply_markup=menu())
+    await msg.answer("✅ Сообщение сохранено", reply_markup=menu())
     await state.finish()
 
 # =====================
@@ -1035,6 +1038,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
