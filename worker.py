@@ -72,11 +72,19 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                            any(k in chat_about for k in blacklist_keywords):
                             continue
 
-                        # ✅ ТОЛЬКО COPY (СТАБИЛЬНО)
-                        await client.send_message(
-                            dialog.id,
-                            message_data.get("text", "")
-                        )
+                        # 📨 FORWARD
+                        if message_data["type"] == "forward":
+                            await client.forward_messages(
+                                dialog.id,
+                                message_data["message_id"],
+                                message_data["from_chat_id"]
+                            )
+                        # ✍️ TEXT
+                        else:
+                            await client.send_message(
+                                dialog.id,
+                                message_data["text"]
+                            )
 
                         sent += 1
                         sent_from_account += 1
@@ -119,6 +127,7 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
 
 
 
