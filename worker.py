@@ -29,8 +29,6 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
     sent = 0
     errors_count = 0
 
-    blocked_accounts = set()
-
     while not stop_flag["stop"]:
         session_files = [
             f for f in os.listdir(sessions_dir)
@@ -44,16 +42,13 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
 
             acc_name = sess.replace(".session", "")
 
-            if acc_name in blocked_accounts:
-                continue
-
             client = TelegramClient(
                 f"{sessions_dir}/{acc_name}",
                 API_ID,
                 API_HASH
             )
 
-            sent_from_account = 0  # 🔥 КЛЮЧЕВО
+            sent_from_account = 0
 
             try:
                 await client.start()
@@ -71,23 +66,17 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                     try:
                         chat = await client.get_entity(dialog.id)
                         chat_name = (dialog.name or "").lower()
-                        chat_about = getattr(chat, "about", "") or ""
+                        chat_about = (getattr(chat, "about", "") or "").lower()
 
                         if any(k in chat_name for k in blacklist_keywords) or \
-                           any(k in chat_about.lower() for k in blacklist_keywords):
+                           any(k in chat_about for k in blacklist_keywords):
                             continue
 
-                        if message_data["type"] == "forward":
-                            await client.forward_messages(
-                                dialog.id,
-                                message_data["message_id"],
-                                message_data["chat_id"]
-                            )
-                        else:
-                            await client.send_message(
-                                dialog.id,
-                                message_data["text"]
-                            )
+                        # ✅ ТОЛЬКО COPY (СТАБИЛЬНО)
+                        await client.send_message(
+                            dialog.id,
+                            message_data.get("text", "")
+                        )
 
                         sent += 1
                         sent_from_account += 1
@@ -98,7 +87,6 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                             random.randint(delay_groups, delay_groups + 3)
                         )
 
-                    # 🚷 нельзя писать — просто пропускаем
                     except (
                         errors.ChatWriteForbiddenError,
                         errors.ChannelPrivateError,
@@ -106,28 +94,12 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                     ):
                         continue
 
-                    # ⚠️ любая другая ошибка — считаем
                     except Exception:
                         errors_count += 1
                         continue
 
-                # 🔥 ВОТ ОНО — ГЛАВНОЕ МЕСТО
-                if sent_from_account == 0:
-                    blocked_accounts.add(acc_name)
-
-                    await progress_cb(
-                        sent,
-                        errors_count,
-                        {
-                            "phone": acc_name,
-                            "reason": "spam_block"
-                        }
-                    )
-
             except Exception:
                 errors_count += 1
-                blocked_accounts.add(acc_name)
-
                 await progress_cb(
                     sent,
                     errors_count,
@@ -147,6 +119,8 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
             await asyncio.sleep(delay_cycle)
 
     return sent, errors_count
+
+
 
 
 
