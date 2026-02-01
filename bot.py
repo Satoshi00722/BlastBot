@@ -70,15 +70,20 @@ def get_settings(uid):
     with open(file, "r") as f:
         return json.load(f)
 
-
 def get_user_text(uid):
     path = user_dir(uid)
-    file = f"{path}/message.txt"
+    file = f"{path}/message.json"
+
     if not os.path.exists(file):
         return None
-    with open(file, "r", encoding="utf-8") as f:
-        return f.read()
 
+    with open(file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if data["type"] == "forward":
+        return "📨 Пересланное сообщение (оригинал)"
+
+    return data.get("text")
 
 def save_payment(user_id, data):
     os.makedirs("payments", exist_ok=True)
@@ -482,20 +487,26 @@ async def text(msg: types.Message, state):
     await msg.answer("✍️ Отправь текст рассылки", reply_markup=back_kb())
     await TextState.waiting.set()
 
-
-@dp.message_handler(state=TextState.waiting, content_types=types.ContentTypes.ANY)
+@dp.message_handler(
+    state=TextState.waiting,
+    content_types=types.ContentTypes.ANY
+)
 async def save_text(msg: types.Message, state):
     path = user_dir(msg.from_user.id)
 
-    data = {}
-
+    # ЕСЛИ ПЕРЕСЛАННОЕ СООБЩЕНИЕ
     if msg.forward_from or msg.forward_from_chat:
         data = {
             "type": "forward",
-            "chat_id": msg.forward_from_chat.id if msg.forward_from_chat else msg.forward_from.id,
-            "message_id": msg.forward_from_message_id
+            "from_chat_id": (
+                msg.forward_from_chat.id
+                if msg.forward_from_chat
+                else msg.forward_from.id
+            ),
+            "message_id": msg.forward_from_message_id,
         }
     else:
+        # ОБЫЧНЫЙ ТЕКСТ (С ПРЕМИУМ СМАЙЛИКАМИ)
         data = {
             "type": "text",
             "text": msg.text or msg.caption
@@ -504,9 +515,8 @@ async def save_text(msg: types.Message, state):
     with open(f"{path}/message.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
-    await msg.answer("✅ Сообщение сохранено (как оригинал)", reply_markup=menu())
+    await msg.answer("✅ Сообщение сохранено", reply_markup=menu())
     await state.finish()
-
 
 # ======================
 # НАСТРОЙКИ
