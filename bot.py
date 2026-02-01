@@ -70,25 +70,6 @@ def get_settings(uid):
     with open(file, "r") as f:
         return json.load(f)
 
-def render_premium_preview(text, entities):
-    if not entities:
-        return text
-
-    result = text
-    shift = 0
-
-    for e in entities:
-        if e["type"] == "custom_emoji":
-            start = e["offset"] + shift
-            end = start + e["length"]
-
-            tag = f'<tg-emoji emoji-id="{e["custom_emoji_id"]}">🔮</tg-emoji>'
-
-            result = result[:start] + tag + result[end:]
-            shift += len(tag) - e["length"]
-
-    return result
-
 def get_user_text(uid):
     path = user_dir(uid)
     file = f"{path}/message.json"
@@ -99,10 +80,12 @@ def get_user_text(uid):
     with open(file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    return render_premium_preview(
-        data.get("text", ""),
-        data.get("entities", [])
-    )
+    text = data.get("text", "")
+
+    if data.get("has_premium"):
+        return "✨ Сообщение содержит Premium-эмодзи\n\n" + text
+
+    return text
 
 def save_payment(user_id, data):
     os.makedirs("payments", exist_ok=True)
@@ -516,17 +499,11 @@ async def save_text(msg: types.Message, state):
     data = {
         "type": "copy",
         "text": msg.text or msg.caption or "",
-        "entities": []
+        "has_premium": any(
+            e.type == "custom_emoji"
+            for e in (msg.entities or [])
+        )
     }
-
-    for e in msg.entities or []:
-        if e.type == "custom_emoji":
-            data["entities"].append({
-                "type": "custom_emoji",
-                "offset": e.offset,
-                "length": e.length,
-                "custom_emoji_id": e.custom_emoji_id
-            })
 
     with open(f"{path}/message.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
@@ -790,7 +767,7 @@ async def start_work(msg: types.Message, state):
     if not accounts:
         await msg.answer("❌ Нет подключённых аккаунтов", reply_markup=menu())
         return
-    if not os.path.exists(f"{path}/message.txt"):
+    if not os.path.exists(f"{path}/message.json"):
         await msg.answer("❌ Нет текста", reply_markup=menu())
         return
     if not os.path.exists(f"{path}/settings.json"):
@@ -1049,6 +1026,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
