@@ -16,6 +16,7 @@ from telethon.errors import SessionPasswordNeededError
 from config import BOT_TOKEN, API_ID, API_HASH
 from worker import spam_worker
 import os, sys, time
+
 print("=== BOT.PY STARTED ===", flush=True)
 print("CWD:", os.getcwd(), flush=True)
 print("FILES:", os.listdir("."), flush=True)
@@ -57,6 +58,7 @@ login_clients = {}
 
 PHONE_RE = re.compile(r"^\+\d{10,15}$")
 
+
 # ======================
 # HELPERS
 # ======================
@@ -68,6 +70,7 @@ def get_settings(uid):
     with open(file, "r") as f:
         return json.load(f)
 
+
 def get_user_text(uid):
     path = user_dir(uid)
     file = f"{path}/message.txt"
@@ -76,10 +79,12 @@ def get_user_text(uid):
     with open(file, "r", encoding="utf-8") as f:
         return f.read()
 
+
 def save_payment(user_id, data):
     os.makedirs("payments", exist_ok=True)
     with open(f"payments/{user_id}.json", "w") as f:
         json.dump(data, f)
+
 
 def load_payment(user_id):
     path = f"payments/{user_id}.json"
@@ -88,19 +93,23 @@ def load_payment(user_id):
     with open(path, "r") as f:
         return json.load(f)
 
+
 def delete_payment(user_id):
     path = f"payments/{user_id}.json"
     if os.path.exists(path):
         os.remove(path)
+
 
 def user_dir(uid):
     path = f"users/user_{uid}"
     os.makedirs(f"{path}/sessions", exist_ok=True)
     return path
 
+
 def get_sessions(uid):
     path = user_dir(uid)
     return [f for f in os.listdir(f"{path}/sessions") if f.endswith(".session")]
+
 
 def get_accounts_info(uid):
     path = user_dir(uid)
@@ -110,28 +119,31 @@ def get_accounts_info(uid):
     with open(file, "r") as f:
         return json.load(f)
 
+
 def get_tariff(uid):
-        path = user_dir(uid)
-        tf = f"{path}/tariff.json"
+    path = user_dir(uid)
+    tf = f"{path}/tariff.json"
 
-        # если тарифа нет — создаём FREE ОДИН РАЗ
-        if not os.path.exists(tf):
-            data = {
-                "name": "FREE",
-                "expires": int(time.time()) + 4 * 60 * 60,
-                "max_accounts": 5
-            }
-            with open(tf, "w") as f:
-                json.dump(data, f)
-            return data
+    # если тарифа нет — создаём FREE ОДИН РАЗ
+    if not os.path.exists(tf):
+        data = {
+            "name": "FREE",
+            "expires": int(time.time()) + 4 * 60 * 60,
+            "max_accounts": 5
+        }
+        with open(tf, "w") as f:
+            json.dump(data, f)
+        return data
 
-        # если есть — просто читаем
-        with open(tf, "r") as f:
-            return json.load(f)
+    # если есть — просто читаем
+    with open(tf, "r") as f:
+        return json.load(f)
+
 
 def is_tariff_active(uid):
     tariff = get_tariff(uid)
     return tariff["expires"] and time.time() < tariff["expires"]
+
 
 def activate_tariff(uid, tariff_key):
     tariff = TARIFFS[tariff_key]
@@ -147,7 +159,6 @@ def activate_tariff(uid, tariff_key):
         json.dump(data, f)
 
 
-
 def menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row("🔓 Подключить", "📝 Текст")
@@ -158,32 +169,38 @@ def menu():
     kb.add("⛔ Остановить")
     return kb
 
+
 def back_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("⬅️ Назад")
     return kb
+
 
 async def reset_login(uid):
     client = login_clients.get(uid)
     if client:
         await client.disconnect()
         login_clients.pop(uid, None)
-        
+
+
 # ======================
 # STATES
 # ======================
 class TextState(StatesGroup):
     waiting = State()
 
+
 class PhoneState(StatesGroup):
     phone = State()
     code = State()
     password = State()
 
+
 class SettingsFSM(StatesGroup):
     delay_groups = State()
     groups_count = State()
     delay_cycle = State()
+
 
 # ======================
 # START
@@ -228,6 +245,7 @@ async def start(msg: types.Message, state):
             reply_markup=menu()
         )
 
+
 # ======================
 # BACK
 # ======================
@@ -236,6 +254,7 @@ async def back(msg: types.Message, state):
     await reset_login(msg.from_user.id)
     await state.finish()
     await msg.answer("↩️ Возврат в меню", reply_markup=menu())
+
 
 # ======================
 # ПОЛЬЗОВАНИЕ
@@ -258,6 +277,7 @@ async def usage(msg: types.Message, state):
         parse_mode="HTML",
         reply_markup=kb
     )
+
 
 # ======================
 # КУПИТЬ АККАУНТЫ
@@ -335,6 +355,7 @@ async def buy_accounts(msg: types.Message, state):
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
 
+
 # ======================
 # АККАУНТЫ
 # ======================
@@ -368,6 +389,7 @@ async def add_account(msg: types.Message, state):
     )
     await PhoneState.phone.set()
 
+
 @dp.message_handler(state=PhoneState.phone)
 async def get_phone(msg: types.Message, state):
     if not PHONE_RE.match(msg.text.strip()):
@@ -392,6 +414,7 @@ async def get_phone(msg: types.Message, state):
         reply_markup=back_kb()
     )
     await PhoneState.code.set()
+
 
 @dp.message_handler(state=PhoneState.code)
 async def get_code(msg: types.Message, state):
@@ -434,6 +457,7 @@ async def get_code(msg: types.Message, state):
     await reset_login(uid)
     await state.finish()
 
+
 @dp.message_handler(state=PhoneState.password)
 async def get_password(msg: types.Message, state):
     uid = msg.from_user.id
@@ -448,6 +472,7 @@ async def get_password(msg: types.Message, state):
     await reset_login(uid)
     await state.finish()
 
+
 # ======================
 # ТЕКСТ
 # ======================
@@ -457,14 +482,31 @@ async def text(msg: types.Message, state):
     await msg.answer("✍️ Отправь текст рассылки", reply_markup=back_kb())
     await TextState.waiting.set()
 
-@dp.message_handler(state=TextState.waiting)
+
+@dp.message_handler(state=TextState.waiting, content_types=types.ContentTypes.ANY)
 async def save_text(msg: types.Message, state):
     path = user_dir(msg.from_user.id)
-    with open(f"{path}/message.txt", "w", encoding="utf-8") as f:
-        f.write(msg.text)
 
-    await msg.answer("✅ Текст сохранён", reply_markup=menu())
+    data = {}
+
+    if msg.forward_from or msg.forward_from_chat:
+        data = {
+            "type": "forward",
+            "chat_id": msg.forward_from_chat.id if msg.forward_from_chat else msg.forward_from.id,
+            "message_id": msg.forward_from_message_id
+        }
+    else:
+        data = {
+            "type": "text",
+            "text": msg.text or msg.caption
+        }
+
+    with open(f"{path}/message.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+    await msg.answer("✅ Сообщение сохранено (как оригинал)", reply_markup=menu())
     await state.finish()
+
 
 # ======================
 # НАСТРОЙКИ
@@ -478,6 +520,7 @@ async def settings_start(msg: types.Message, state):
     )
     await SettingsFSM.delay_groups.set()
 
+
 @dp.message_handler(state=SettingsFSM.delay_groups)
 async def set_delay_groups(msg: types.Message, state):
     if not msg.text.isdigit():
@@ -487,6 +530,7 @@ async def set_delay_groups(msg: types.Message, state):
     await msg.answer("👥 Сколько групп брать с одного аккаунта?", reply_markup=back_kb())
     await SettingsFSM.groups_count.set()
 
+
 @dp.message_handler(state=SettingsFSM.groups_count)
 async def set_groups(msg: types.Message, state):
     if not msg.text.isdigit():
@@ -495,6 +539,7 @@ async def set_groups(msg: types.Message, state):
     await state.update_data(groups_per_account=int(msg.text))
     await msg.answer("⏳ Задержка после всех аккаунтов (Минуты):", reply_markup=back_kb())
     await SettingsFSM.delay_cycle.set()
+
 
 @dp.message_handler(state=SettingsFSM.delay_cycle)
 async def set_cycle(msg: types.Message, state):
@@ -516,6 +561,7 @@ async def set_cycle(msg: types.Message, state):
 
     await msg.answer("✅ Настройки сохранены", reply_markup=menu())
     await state.finish()
+
 
 # ======================
 # ЛИЧНЫЙ КАБИНЕТ
@@ -571,7 +617,7 @@ async def cabinet(msg: types.Message, state):
         text += (
             f"• ⏱ Задержка между группами: <b>{settings['delay_between_groups']} сек</b>\n"
             f"• 👥 Групп с аккаунта: <b>{settings['groups_per_account']}</b>\n"
-            f"• 🔁 Пауза между циклами: <b>{settings['delay_between_cycles']//60} мин</b>\n"
+            f"• 🔁 Пауза между циклами: <b>{settings['delay_between_cycles'] // 60} мин</b>\n"
         )
     else:
         text += "❌ Настройки не заданы\n"
@@ -583,6 +629,7 @@ async def cabinet(msg: types.Message, state):
     )
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
+
 
 @dp.message_handler(lambda m: m.text.lower() in ["del all", "del_all"], state="*")
 async def delete_all_accounts(msg: types.Message, state):
@@ -639,10 +686,11 @@ async def delete_all_accounts(msg: types.Message, state):
         reply_markup=menu()
     )
 
+
 @dp.message_handler(
     lambda m: m.text.lower().startswith("del ")
-    and len(m.text.split()) == 2
-    and m.text.split()[1].isdigit(),
+              and len(m.text.split()) == 2
+              and m.text.split()[1].isdigit(),
     state="*"
 )
 async def delete_account(msg: types.Message, state):
@@ -692,6 +740,7 @@ async def delete_account(msg: types.Message, state):
         workers[uid]["logs"].clear()
 
     await msg.answer("✅ Аккаунт полностью удалён", reply_markup=menu())
+
 
 # ======================
 # START / STOP WORK
@@ -781,6 +830,7 @@ async def start_work(msg: types.Message, state):
 
     workers[uid]["task"] = task
 
+
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
 async def stop(msg: types.Message, state):
     await state.finish()
@@ -788,6 +838,7 @@ async def stop(msg: types.Message, state):
     if uid in workers:
         workers[uid]["stop"] = True
         await msg.answer("⛔ Рассылка остановлена", reply_markup=menu())
+
 
 # ======================
 # ТАРИФЫ
@@ -812,6 +863,7 @@ async def tariffs(msg: types.Message):
         parse_mode="HTML",
         reply_markup=kb
     )
+
 
 @dp.message_handler(lambda m: "30 дней" in m.text)
 async def buy_30(msg: types.Message):
@@ -842,6 +894,8 @@ async def buy_30(msg: types.Message):
         "2️⃣ Нажмите «Проверить оплату»",
         reply_markup=kb
     )
+
+
 @dp.message_handler(lambda m: "90 дней" in m.text)
 async def buy_90(msg: types.Message):
     invoice = create_invoice(
@@ -871,6 +925,8 @@ async def buy_90(msg: types.Message):
         "2️⃣ Нажмите «Проверить оплату»",
         reply_markup=kb
     )
+
+
 @dp.message_handler(lambda m: "365 дней" in m.text)
 async def buy_365(msg: types.Message):
     invoice = create_invoice(
@@ -900,6 +956,8 @@ async def buy_365(msg: types.Message):
         "2️⃣ Нажмите «Проверить оплату»",
         reply_markup=kb
     )
+
+
 @dp.callback_query_handler(lambda c: c.data == "check_payment", state="*")
 async def check_payment(call: types.CallbackQuery):
     await call.answer("Проверяю оплату...")
@@ -951,6 +1009,7 @@ async def check_payment(call: types.CallbackQuery):
     )
     await call.message.edit_reply_markup()
 
+
 # ======================
 # RUN
 # ======================
@@ -960,6 +1019,7 @@ if __name__ == "__main__":
         executor.start_polling(dp, skip_updates=True)
     except Exception as e:
         import traceback
+
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
