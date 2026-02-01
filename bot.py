@@ -70,6 +70,25 @@ def get_settings(uid):
     with open(file, "r") as f:
         return json.load(f)
 
+def render_premium_preview(text, entities):
+    if not entities:
+        return text
+
+    result = text
+    shift = 0
+
+    for e in entities:
+        if e["type"] == "custom_emoji":
+            start = e["offset"] + shift
+            end = start + e["length"]
+
+            tag = f'<tg-emoji emoji-id="{e["custom_emoji_id"]}">🔮</tg-emoji>'
+
+            result = result[:start] + tag + result[end:]
+            shift += len(tag) - e["length"]
+
+    return result
+
 def get_user_text(uid):
     path = user_dir(uid)
     file = f"{path}/message.json"
@@ -80,10 +99,10 @@ def get_user_text(uid):
     with open(file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    if data["type"] == "forward":
-        return "📨 Пересланное сообщение (оригинал)"
-
-    return data.get("text")
+    return render_premium_preview(
+        data.get("text", ""),
+        data.get("entities", [])
+    )
 
 def save_payment(user_id, data):
     os.makedirs("payments", exist_ok=True)
@@ -495,9 +514,19 @@ async def save_text(msg: types.Message, state):
     path = user_dir(msg.from_user.id)
 
     data = {
-        "type": "text",
-        "text": msg.text or msg.caption or ""
+        "type": "copy",
+        "text": msg.text or msg.caption or "",
+        "entities": []
     }
+
+    for e in msg.entities or []:
+        if e.type == "custom_emoji":
+            data["entities"].append({
+                "type": "custom_emoji",
+                "offset": e.offset,
+                "length": e.length,
+                "custom_emoji_id": e.custom_emoji_id
+            })
 
     with open(f"{path}/message.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
@@ -601,7 +630,7 @@ async def cabinet(msg: types.Message, state):
     text += "📄 <b>Текст рассылки:</b>\n"
     if text_msg:
         preview = text_msg[:300]
-        text += f"<code>{preview}</code>\n"
+        text += f"{preview}\n"
         if len(text_msg) > 300:
             text += "…\n"
     else:
