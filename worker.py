@@ -17,7 +17,9 @@ blacklist_keywords = [
 
 async def spam_worker(user_dir, stop_flag, progress_cb):
     settings = json.load(open(f"{user_dir}/settings.json"))
-    message = open(f"{user_dir}/message.txt", encoding="utf-8").read()
+    message_data = json.load(
+        open(f"{user_dir}/message.json", encoding="utf-8")
+    )
     sessions_dir = f"{user_dir}/sessions"
 
     delay_groups = settings["delay_between_groups"]
@@ -75,7 +77,17 @@ async def spam_worker(user_dir, stop_flag, progress_cb):
                            any(k in chat_about.lower() for k in blacklist_keywords):
                             continue
 
-                        await client.send_message(dialog.id, message)
+                        if message_data["type"] == "forward":
+                            await client.forward_messages(
+                                dialog.id,
+                                message_data["message_id"],
+                                message_data["chat_id"]
+                            )
+                        else:
+                            await client.send_message(
+                                dialog.id,
+                                message_data["text"]
+                            )
 
                         sent += 1
                         sent_from_account += 1
