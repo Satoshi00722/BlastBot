@@ -494,23 +494,10 @@ async def text(msg: types.Message, state):
 async def save_text(msg: types.Message, state):
     path = user_dir(msg.from_user.id)
 
-    # ЕСЛИ ПЕРЕСЛАННОЕ СООБЩЕНИЕ
-    if msg.forward_from or msg.forward_from_chat:
-        data = {
-            "type": "forward",
-            "from_chat_id": (
-                msg.forward_from_chat.id
-                if msg.forward_from_chat
-                else msg.forward_from.id
-            ),
-            "message_id": msg.forward_from_message_id,
-        }
-    else:
-        # ОБЫЧНЫЙ ТЕКСТ (С ПРЕМИУМ СМАЙЛИКАМИ)
-        data = {
-            "type": "text",
-            "text": msg.text or msg.caption
-        }
+    data = {
+        "type": "text",
+        "text": msg.text or msg.caption or ""
+    }
 
     with open(f"{path}/message.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
@@ -1033,6 +1020,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
