@@ -80,12 +80,10 @@ def get_user_text(uid):
     with open(file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    text = data.get("text", "")
+    if data["type"] == "forward":
+        return "✨ Пересланное сообщение\n(Premium-стикеры сохранятся)"
 
-    if data.get("has_premium"):
-        return "✨ Сообщение содержит Premium-эмодзи\n\n" + text
-
-    return text
+    return data.get("text", "")
 
 def save_payment(user_id, data):
     os.makedirs("payments", exist_ok=True)
@@ -496,22 +494,33 @@ async def text(msg: types.Message, state):
 async def save_text(msg: types.Message, state):
     path = user_dir(msg.from_user.id)
 
-    data = {
-        "type": "copy",
-        "text": msg.text or msg.caption or "",
-        "has_premium": any(
-            e.type == "custom_emoji"
-            for e in (msg.entities or [])
-        )
-    }
+    # ЕСЛИ ПЕРЕСЛАННОЕ СООБЩЕНИЕ → FORWARD
+    if msg.forward_from or msg.forward_from_chat:
+        data = {
+            "type": "forward",
+            "from_chat_id": (
+                msg.forward_from_chat.id
+                if msg.forward_from_chat
+                else msg.forward_from.id
+            ),
+            "message_id": msg.forward_from_message_id
+        }
+        info = "📨 Пересланное сообщение (FORWARD)"
+    else:
+        # ИНАЧЕ → ПРОСТО ТЕКСТ
+        data = {
+            "type": "text",
+            "text": msg.text or msg.caption or ""
+        }
+        info = "✍️ Обычный текст (COPY)"
 
     with open(f"{path}/message.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
-    await msg.answer("✅ Сообщение сохранено", reply_markup=menu())
+    await msg.answer(f"✅ Сообщение сохранено\n{info}", reply_markup=menu())
     await state.finish()
 
-# ======================
+# =====================
 # НАСТРОЙКИ
 # ======================
 @dp.message_handler(lambda m: m.text == "⚙️ Настройки", state="*")
