@@ -303,8 +303,17 @@ async def usage(msg: types.Message, state):
 # КУПИТЬ АККАУНТЫ
 # ======================
 @dp.message_handler(lambda m: m.text == "📢 Канал | Отзывы", state="*")
-async def buy_accounts(msg: types.Message, state):
+async def channel_reviews(msg: types.Message, state):
     await state.finish()
+
+    # Создаем инлайн-кнопку
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton(
+            text="📢 Перейти в канал",
+            url="https://t.me/DigitaI_Services"
+        )
+    )
 
     text = (
         "🔥 <b>Наш канал — всё для упрощения твоей работы</b>\n\n"
@@ -317,26 +326,8 @@ async def buy_accounts(msg: types.Message, state):
         "✨ <b>Подписывайся и бери то, что реально работает</b> 🚀"
     )
 
-    # Создаем инлайн-кнопку
-    kb = InlineKeyboardMarkup()
-    kb.add(
-        InlineKeyboardButton(
-            text="📢 Перейти в канал",
-            url="https://t.me/DigitaI_Services"
-        )
-    )
-
-    # Отправляем сообщение с меню и кнопкой
-    await msg.answer(text, parse_mode="HTML", reply_markup=menu())
-    
-    # Отправляем отдельное сообщение с инлайн-кнопкой
-    await msg.answer(
-        "👇 Нажми на кнопку ниже, чтобы перейти в наш канал:",
-        reply_markup=kb
-    )
-
-    await msg.answer(text, parse_mode="HTML", reply_markup=menu())
-
+    # Отправляем ОДНО сообщение с текстом и кнопкой
+    await msg.answer(text, parse_mode="HTML", reply_markup=kb)
 
 # ======================
 # АККАУНТЫ (ИЗМЕНЕНО - ДОБАВЛЕН КАСТОМНЫЙ КЛИЕНТ)
@@ -1017,6 +1008,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
