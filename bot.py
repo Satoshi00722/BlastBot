@@ -58,6 +58,21 @@ login_clients = {}
 
 PHONE_RE = re.compile(r"^\+\d{10,15}$")
 
+# ======================
+# CUSTOM TELEGRAM CLIENT CONFIGURATION
+# ======================
+def create_custom_telegram_client(session_file):
+    """Создает кастомизированный TelegramClient с параметрами Android-устройства"""
+    return TelegramClient(
+        session_file,
+        API_ID,
+        API_HASH,
+        device_model="Samsung Galaxy S21",  # Популярное Android-устройство
+        system_version="Android 13",        # Актуальная версия Android
+        app_version="9.6.3",               # Версия Telegram Android
+        lang_code="ru",                    # Русский интерфейс
+        system_lang_code="ru"              # Русская системная локализация
+    )
 
 # ======================
 # HELPERS
@@ -362,7 +377,7 @@ async def buy_accounts(msg: types.Message, state):
 
 
 # ======================
-# АККАУНТЫ
+# АККАУНТЫ (ИЗМЕНЕНО - ДОБАВЛЕН КАСТОМНЫЙ КЛИЕНТ)
 # ======================
 @dp.message_handler(lambda m: m.text == "🔓 Подключить", state="*")
 async def add_account(msg: types.Message, state):
@@ -406,8 +421,10 @@ async def get_phone(msg: types.Message, state):
 
     phone = msg.text.strip()
     path = user_dir(msg.from_user.id)
+    session_file = f"{path}/sessions/{phone}"
 
-    client = TelegramClient(f"{path}/sessions/{phone}", API_ID, API_HASH)
+    # ИСПОЛЬЗУЕМ КАСТОМНЫЙ ТЕЛЕГРАМ КЛИЕНТ
+    client = create_custom_telegram_client(session_file)
     await client.connect()
     await client.send_code_request(phone)
 
@@ -1038,6 +1055,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
