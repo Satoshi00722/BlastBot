@@ -128,7 +128,6 @@ def check_referral_conditions(user_id):
         return False
     
     # 5. Триал завершен (24 часа прошло)
-    # В нашем случае триал всегда 24 часа, проверяем что время истекло
     tariff_file = f"{user_dir}/tariff.json"
     if os.path.exists(tariff_file):
         with open(tariff_file, "r") as f:
@@ -174,6 +173,23 @@ async def count_referral(user_id):
     except:
         pass
     
+    # Уведомление админу о новом реферале
+    try:
+        referrer_data = get_user_data(referrer_id)
+        referrer_name = referrer_data.get("first_name", "Unknown") if referrer_data else "Unknown"
+        
+        await bot.send_message(
+            ADMIN_CHANNEL_ID,
+            f"🎉 <b>НОВЫЙ РЕФЕРАЛ ЗАСЧИТАН</b>\n\n"
+            f"👤 <b>Пригласивший:</b> {referrer_id} ({referrer_name})\n"
+            f"👥 <b>Реферал:</b> {user_id}\n"
+            f"📊 <b>Прогресс:</b> {ref_data['referrals_count']} / 3\n"
+            f"⏰ <b>Время:</b> {time.strftime('%Y-%m-%d %H:%M:%S')}",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Error sending referral notification: {e}")
+    
     # Проверяем, достигнуто ли условие для скидки
     if ref_data["referrals_count"] == 3 and not ref_data["discount_50"]:
         ref_data["discount_50"] = True
@@ -190,6 +206,21 @@ async def count_referral(user_id):
             )
         except:
             pass
+        
+        # Уведомление админу о получении скидки
+        try:
+            await bot.send_message(
+                ADMIN_CHANNEL_ID,
+                f"🎊 <b>СКИДКА 50% АКТИВИРОВАНА</b>\n\n"
+                f"👤 <b>Пользователь:</b> {referrer_id}\n"
+                f"🎯 <b>Достижение:</b> Пригласил 3 рефералов\n"
+                f"💰 <b>Награда:</b> Скидка 50% на любой тариф\n"
+                f"⏰ <b>Время:</b> {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                f"<i>Скидка будет применена автоматически при следующей оплате</i>",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            print(f"Error sending discount notification: {e}")
     
     return True
 
@@ -345,7 +376,7 @@ class SettingsFSM(StatesGroup):
     delay_cycle = State()
 
 # ======================
-# START WITH REFERRAL HANDLING
+# START WITH REFERRAL HANDLING - ФИКСИРОВАННЫЙ
 # ======================
 @dp.message_handler(commands=["start"], state="*")
 async def start(msg: types.Message, state):
@@ -362,7 +393,6 @@ async def start(msg: types.Message, state):
             referrer_id = int(args.split("_")[1])
             # Проверяем, что пользователь не сам себя приглашает
             if referrer_id == user.id:
-                await bot.send_message(user.id, "❌ Нельзя пригласить самого себя!")
                 referrer_id = None
             else:
                 # Проверяем существование пригласившего
@@ -392,6 +422,21 @@ async def start(msg: types.Message, state):
                             )
                         except:
                             pass
+                        
+                        # Уведомление админу о новом реферале
+                        try:
+                            await bot.send_message(
+                                ADMIN_CHANNEL_ID,
+                                f"👋 <b>НОВЫЙ РЕФЕРАЛ</b>\n\n"
+                                f"👤 <b>Пригласивший:</b> {referrer_id}\n"
+                                f"👥 <b>Реферал:</b> {user.id}\n"
+                                f"📛 <b>Имя:</b> {user.first_name}\n"
+                                f"🔗 <b>Username:</b> {username}\n\n"
+                                f"📅 <b>Время:</b> {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                                parse_mode="HTML"
+                            )
+                        except Exception as e:
+                            print(f"Error sending admin notification: {e}")
                 else:
                     referrer_id = None
         except:
@@ -414,14 +459,17 @@ async def start(msg: types.Message, state):
         save_user_data(user.id, user_data)
     
     # Уведомление админу
-    await bot.send_message(
-        ADMIN_CHANNEL_ID,
-        f"🚀 Новый старт бота\n\n"
-        f"👤 User ID: {user.id}\n"
-        f"👀 Username: {username}\n"
-        f"📛 Имя: {user.first_name}\n"
-        f"🔗 Реферал: {'Да' if referrer_id else 'Нет'}"
-    )
+    try:
+        await bot.send_message(
+            ADMIN_CHANNEL_ID,
+            f"🚀 Новый старт бота\n\n"
+            f"👤 User ID: {user.id}\n"
+            f"👀 Username: {username}\n"
+            f"📛 Имя: {user.first_name}\n"
+            f"🔗 Реферал: {'Да' if referrer_id else 'Нет'}"
+        )
+    except Exception as e:
+        print(f"Error sending start notification: {e}")
 
     text = (
         "👋 <b>Добро пожаловать в BlastBot</b>\n\n"
@@ -438,14 +486,21 @@ async def start(msg: types.Message, state):
         "⬇️ Выберите действие ниже"
     )
 
-    with open("welcome.jpg", "rb") as photo:
-        await bot.send_photo(
-            chat_id=msg.chat.id,
-            photo=photo,
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=menu()
-        )
+    # Отправляем приветственное сообщение без фото
+    await msg.answer(
+        text=text,
+        parse_mode="HTML",
+        reply_markup=menu()
+    )
+
+# ======================
+# BACK
+# ======================
+@dp.message_handler(lambda m: m.text == "⬅️ Назад", state="*")
+async def back(msg: types.Message, state):
+    await reset_login(msg.from_user.id)
+    await state.finish()
+    await msg.answer("↩️ Возврат в меню", reply_markup=menu())
 
 # ======================
 # REFERRAL PROGRAM
@@ -456,7 +511,6 @@ async def referral_program(msg: types.Message, state):
     
     user_id = msg.from_user.id
     ref_data = get_referral_data(user_id)
-    user_data = get_user_data(user_id)
     
     referral_link = f"https://t.me/BlastTGService_bot?start=ref_{user_id}"
     
@@ -485,15 +539,6 @@ async def referral_program(msg: types.Message, state):
     )
     
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
-
-# ======================
-# BACK
-# ======================
-@dp.message_handler(lambda m: m.text == "⬅️ Назад", state="*")
-async def back(msg: types.Message, state):
-    await reset_login(msg.from_user.id)
-    await state.finish()
-    await msg.answer("↩️ Возврат в меню", reply_markup=menu())
 
 # ======================
 # ПОЛЬЗОВАНИЕ
@@ -1313,6 +1358,20 @@ async def check_payment(call: types.CallbackQuery):
         ref_data["discount_used"] = True
         save_referral_data(uid, ref_data)
         
+        # Уведомление админу о применении скидки
+        try:
+            await bot.send_message(
+                ADMIN_CHANNEL_ID,
+                f"💰 <b>СКИДКА 50% ПРИМЕНЕНА</b>\n\n"
+                f"👤 <b>Пользователь:</b> {uid}\n"
+                f"📦 <b>Тариф:</b> {TARIFFS[tariff_key]['name']}\n"
+                f"💵 <b>Цена со скидкой:</b> {invoice['amount']} {invoice['asset']}\n"
+                f"⏰ <b>Время:</b> {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            print(f"Error sending discount applied notification: {e}")
+        
         await call.message.answer(
             "✅ Оплата получена.\n"
             "🎉 Тариф активирован.\n"
@@ -1366,8 +1425,6 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
-
-
 
 
 
