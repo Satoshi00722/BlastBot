@@ -11,13 +11,11 @@ API_HASH = os.getenv("API_HASH")
 ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID")
 ADMIN_CHANNEL_ID = int(ADMIN_CHANNEL_ID) if ADMIN_CHANNEL_ID else None
 
-# config.py - добавьте эти строки в конец файла
-
-# Реферальная система
 REFERRAL_REWARD_COUNT = 3  # Количество рефералов для получения скидки
 REFERRAL_DISCOUNT_PERCENT = 50  # Процент скидки
 
 # Длительность триала (в секундах) - 24 часа
 TRIAL_DURATION = 24 * 60 * 60
+
 
 
