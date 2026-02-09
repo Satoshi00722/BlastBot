@@ -1393,7 +1393,6 @@ async def periodic_referral_check():
     """Периодическая проверка условий для рефералов"""
     while True:
         try:
-            # Проверяем всех пользователей
             for user_dir in os.listdir("users"):
                 if user_dir.startswith("user_"):
                     try:
@@ -1402,29 +1401,43 @@ async def periodic_referral_check():
                             await count_referral(user_id)
                     except:
                         continue
-            
-            # Ждем 1 час до следующей проверки
+
+            # проверяем раз в час
             await asyncio.sleep(3600)
+
         except Exception as e:
             print(f"Error in periodic referral check: {e}")
             await asyncio.sleep(300)
+
+
+# ======================
+# ON STARTUP
+# ======================
+async def on_startup(dp):
+    print("=== ON_STARTUP ===", flush=True)
+    asyncio.create_task(periodic_referral_check())
+
 
 # ======================
 # RUN
 # ======================
 if __name__ == "__main__":
     print("=== START POLLING ===", flush=True)
-    
-    # Запускаем периодическую проверку рефералов
-    asyncio.create_task(periodic_referral_check())
-    
+
     try:
-        executor.start_polling(dp, skip_updates=True)
+        executor.start_polling(
+            dp,
+            skip_updates=True,
+            on_startup=on_startup
+        )
     except Exception as e:
         import traceback
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
+
+
 
 
 
