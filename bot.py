@@ -22,7 +22,6 @@ print("CWD:", os.getcwd(), flush=True)
 print("FILES:", os.listdir("."), flush=True)
 os.makedirs("users", exist_ok=True)
 os.makedirs("payments", exist_ok=True)
-
 # ======================
 # TARIFFS
 # ======================
@@ -59,9 +58,6 @@ login_clients = {}
 
 PHONE_RE = re.compile(r"^\+\d{10,15}$")
 
-# Имя вашего бота для реферальных ссылок
-BOT_USERNAME = "BlastTGService_bot"
-
 # ======================
 # CUSTOM TELEGRAM CLIENT CONFIGURATION
 # ======================
@@ -77,115 +73,6 @@ def create_custom_telegram_client(session_file):
         lang_code="ru",                    # Русский интерфейс
         system_lang_code="ru"              # Русская системная локализация
     )
-
-# ======================
-# REFERRAL SYSTEM FUNCTIONS
-# ======================
-def get_user_data(uid):
-    """Получить данные пользователя"""
-    path = user_dir(uid)
-    file = f"{path}/user_data.json"
-    
-    if not os.path.exists(file):
-        data = {
-            "user_id": uid,
-            "referrer_id": None,
-            "trial_start_time": None,
-            "trial_completed": False,
-            "accounts_connected_count": 0,
-            "referrals_count": 0,
-            "discount_50": False,
-            "discount_used": False,
-            "referral_credited": False,
-            "created_at": time.time(),
-            "first_start": True,
-            "start_work_clicked": False
-        }
-        save_user_data(uid, data)
-        return data
-    
-    with open(file, "r") as f:
-        return json.load(f)
-
-def save_user_data(uid, data):
-    """Сохранить данные пользователя"""
-    path = user_dir(uid)
-    file = f"{path}/user_data.json"
-    with open(file, "w") as f:
-        json.dump(data, f, indent=2)
-
-async def send_notification(uid, message):
-    """Отправить уведомление пользователю"""
-    try:
-        await bot.send_message(uid, message)
-    except:
-        pass
-
-def update_referral_count(referrer_id):
-    """Обновить счетчик рефералов"""
-    data = get_user_data(referrer_id)
-    data["referrals_count"] += 1
-    save_user_data(referrer_id, data)
-    
-    # Проверяем, достиг ли пользователь 3 рефералов
-    if data["referrals_count"] == 3 and not data["discount_50"]:
-        data["discount_50"] = True
-        save_user_data(referrer_id, data)
-        
-        # Уведомляем пользователя
-        asyncio.create_task(
-            send_notification(referrer_id, 
-                "🎉 Поздравляем! Вы пригласили 3 друзей!\n\n"
-                "✅ Вы получили одноразовую скидку 50% на любой тариф!\n"
-                "💳 Скидка будет применена автоматически при следующей оплате."
-            )
-        )
-    
-    # Уведомляем о новом реферале
-    asyncio.create_task(
-        send_notification(referrer_id,
-            f"🎯 Новый реферал засчитан!\n"
-            f"👥 Всего рефералов: {data['referrals_count']}/3"
-        )
-    )
-
-def check_referral_conditions(uid):
-    """Проверить все условия для засчета реферала"""
-    user_data = get_user_data(uid)
-    
-    # 1. Проверяем, есть ли реферер
-    if not user_data["referrer_id"]:
-        return False
-    
-    # 2. Проверяем, не был ли уже засчитан
-    if user_data["referral_credited"]:
-        return False
-    
-    # 3. Проверяем, что нажал "Начать работу"
-    if not user_data["start_work_clicked"]:
-        return False
-    
-    # 4. Проверяем, что подключен минимум 1 аккаунт
-    if user_data["accounts_connected_count"] < 1:
-        return False
-    
-    # 5. Проверяем, что триал завершен
-    if not user_data["trial_completed"]:
-        return False
-    
-    # 6. Проверяем, что прошло минимум 24 часа с начала триала
-    if user_data["trial_start_time"]:
-        trial_duration = time.time() - user_data["trial_start_time"]
-        if trial_duration < 24 * 60 * 60:  # 24 часа
-            return False
-    
-    return True
-
-def mark_referral_credited(uid):
-    """Пометить реферала как засчитанного"""
-    data = get_user_data(uid)
-    data["referral_credited"] = True
-    save_user_data(uid, data)
 
 # ======================
 # HELPERS
@@ -218,6 +105,7 @@ def save_payment(user_id, data):
     with open(f"payments/{user_id}.json", "w") as f:
         json.dump(data, f)
 
+
 def load_payment(user_id):
     path = f"payments/{user_id}.json"
     if not os.path.exists(path):
@@ -225,19 +113,23 @@ def load_payment(user_id):
     with open(path, "r") as f:
         return json.load(f)
 
+
 def delete_payment(user_id):
     path = f"payments/{user_id}.json"
     if os.path.exists(path):
         os.remove(path)
+
 
 def user_dir(uid):
     path = f"users/user_{uid}"
     os.makedirs(f"{path}/sessions", exist_ok=True)
     return path
 
+
 def get_sessions(uid):
     path = user_dir(uid)
     return [f for f in os.listdir(f"{path}/sessions") if f.endswith(".session")]
+
 
 def get_accounts_info(uid):
     path = user_dir(uid)
@@ -246,6 +138,7 @@ def get_accounts_info(uid):
         return []
     with open(file, "r") as f:
         return json.load(f)
+
 
 def get_tariff(uid):
     path = user_dir(uid)
@@ -260,40 +153,22 @@ def get_tariff(uid):
         }
         with open(tf, "w") as f:
             json.dump(data, f)
-        
-        # Устанавливаем время начала триала
-        user_data = get_user_data(uid)
-        if not user_data["trial_start_time"]:
-            user_data["trial_start_time"] = time.time()
-            save_user_data(uid, user_data)
-        
         return data
 
     # если есть — просто читаем
     with open(tf, "r") as f:
         return json.load(f)
 
+
 def is_tariff_active(uid):
     tariff = get_tariff(uid)
     return tariff["expires"] and time.time() < tariff["expires"]
 
-def activate_tariff(uid, tariff_key, apply_discount=False):
+
+def activate_tariff(uid, tariff_key):
     tariff = TARIFFS[tariff_key]
     path = user_dir(uid)
-    
-    # Проверяем скидку
-    user_data = get_user_data(uid)
-    final_price = tariff["price"]
-    discount_applied = False
-    
-    if apply_discount and user_data["discount_50"] and not user_data["discount_used"]:
-        final_price = round(tariff["price"] * 0.5, 2)
-        discount_applied = True
-        user_data["discount_50"] = False
-        user_data["discount_used"] = True
-        save_user_data(uid, user_data)
-    
-    # Обновляем тариф
+
     data = {
         "name": tariff["name"],
         "expires": int(time.time()) + tariff["days"] * 86400,
@@ -302,28 +177,24 @@ def activate_tariff(uid, tariff_key, apply_discount=False):
 
     with open(f"{path}/tariff.json", "w") as f:
         json.dump(data, f)
-    
-    # Помечаем триал как завершенный при покупке тарифа
-    if not user_data["trial_completed"]:
-        user_data["trial_completed"] = True
-        save_user_data(uid, user_data)
-    
-    return discount_applied, final_price
+
 
 def menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row("🔓 Подключить", "📝 Текст")
     kb.row("⚙️ Настройки", "👤 Личный кабинет")
-    kb.row("💳 Тарифы", "👥 Реферальная программа")
+    kb.row("💳 Тарифы")
     kb.row("📘 Для Новичка", "📢 Канал | Отзывы")
     kb.add("▶️ Начать работу")
     kb.add("⛔ Остановить")
     return kb
 
+
 def back_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("⬅️ Назад")
     return kb
+
 
 async def reset_login(uid):
     client = login_clients.get(uid)
@@ -331,66 +202,35 @@ async def reset_login(uid):
         await client.disconnect()
         login_clients.pop(uid, None)
 
+
 # ======================
 # STATES
 # ======================
 class TextState(StatesGroup):
     waiting = State()
 
+
 class PhoneState(StatesGroup):
     phone = State()
     code = State()
     password = State()
+
 
 class SettingsFSM(StatesGroup):
     delay_groups = State()
     groups_count = State()
     delay_cycle = State()
 
+
 # ======================
-# START (С РЕФЕРАЛЬНОЙ СИСТЕМОЙ)
+# START
 # ======================
 @dp.message_handler(commands=["start"], state="*")
 async def start(msg: types.Message, state):
     await state.finish()
 
     user = msg.from_user
-    uid = user.id
     username = f"@{user.username}" if user.username else "нет"
-
-    # Получаем аргументы из команды /start
-    args = msg.get_args()
-    referrer_id = None
-    
-    # Проверяем, есть ли реферальная ссылка
-    if args and args.startswith("ref_"):
-        try:
-            referrer_id = int(args.split("_")[1])
-            
-            # Проверяем, что пользователь не приглашает сам себя
-            if referrer_id == uid:
-                referrer_id = None
-            else:
-                # Проверяем, существует ли реферер
-                referrer_path = user_dir(referrer_id)
-                if not os.path.exists(referrer_path):
-                    referrer_id = None
-        except:
-            referrer_id = None
-    
-    # Получаем или создаем данные пользователя
-    user_data = get_user_data(uid)
-    
-    # Если это первый старт и есть валидный реферер
-    if user_data["first_start"] and referrer_id:
-        user_data["referrer_id"] = referrer_id
-        user_data["first_start"] = False
-        save_user_data(uid, user_data)
-    
-    # Обновляем флаг first_start если нужно
-    if user_data["first_start"]:
-        user_data["first_start"] = False
-        save_user_data(uid, user_data)
 
     # уведомление админу (оставляем)
     await bot.send_message(
@@ -425,6 +265,7 @@ async def start(msg: types.Message, state):
             reply_markup=menu()
         )
 
+
 # ======================
 # BACK
 # ======================
@@ -434,54 +275,6 @@ async def back(msg: types.Message, state):
     await state.finish()
     await msg.answer("↩️ Возврат в меню", reply_markup=menu())
 
-# ======================
-# РЕФЕРАЛЬНАЯ ПРОГРАММА
-# ======================
-@dp.message_handler(lambda m: m.text == "👥 Реферальная программа", state="*")
-async def referral_program(msg: types.Message, state):
-    await state.finish()
-    
-    uid = msg.from_user.id
-    user_data = get_user_data(uid)
-    
-    # Создаем реферальную ссылку с вашим именем бота
-    referral_link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
-    
-    text = (
-        "👥 <b>Реферальная программа</b>\n\n"
-        f"🎯 Ваши рефералы: <b>{user_data['referrals_count']}/3</b>\n\n"
-        
-        "🔗 <b>Ваша реферальная ссылка:</b>\n"
-        f"<code>{referral_link}</code>\n\n"
-        
-        "📋 <b>Условия засчета реферала:</b>\n"
-        "1. Пользователь впервые зашел по вашей ссылке\n"
-        "2. Нажал «▶️ Начать работу»\n"
-        "3. Подключил минимум 1 аккаунт\n"
-        "4. Пользовался ботом не менее 24 часов\n"
-        "5. Полностью завершил 24-часовой триал\n\n"
-        
-        "🎁 <b>Награда:</b>\n"
-        "✅ <b>50% скидка</b> на любой тариф!\n"
-        "• Скидка одноразовая\n"
-        "• Применяется автоматически\n"
-        "• Действует на любой тариф\n\n"
-    )
-    
-    # Добавляем статус скидки
-    if user_data['discount_50'] and not user_data['discount_used']:
-        text += "💰 <b>Текущий статус:</b> 🎉 Скидка 50% доступна!"
-    elif user_data['discount_used']:
-        text += "💰 <b>Текущий статус:</b> ✅ Скидка 50% использована"
-    else:
-        needed = 3 - user_data['referrals_count']
-        text += f"💰 <b>Текущий статус:</b> 🔒 Пригласите еще {needed} друзей"
-    
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("📤 Поделиться ссылкой", 
-           url=f"https://t.me/share/url?url={referral_link}&text=Присоединяйся%20к%20BlastBot%20—%20мощный%20бот%20для%20рассылок%20в%20Telegram!%20🎯"))
-    
-    await msg.answer(text, parse_mode="HTML", reply_markup=kb)
 
 # ======================
 # ПОЛЬЗОВАНИЕ
@@ -504,6 +297,7 @@ async def usage(msg: types.Message, state):
         parse_mode="HTML",
         reply_markup=kb
     )
+
 
 # ======================
 # КУПИТЬ АККАУНТЫ
@@ -568,6 +362,7 @@ async def add_account(msg: types.Message, state):
     )
     await PhoneState.phone.set()
 
+
 @dp.message_handler(state=PhoneState.phone)
 async def get_phone(msg: types.Message, state):
     if not PHONE_RE.match(msg.text.strip()):
@@ -578,8 +373,7 @@ async def get_phone(msg: types.Message, state):
         return
 
     phone = msg.text.strip()
-    uid = msg.from_user.id
-    path = user_dir(uid)
+    path = user_dir(msg.from_user.id)
     session_file = f"{path}/sessions/{phone}"
 
     # ИСПОЛЬЗУЕМ КАСТОМНЫЙ ТЕЛЕГРАМ КЛИЕНТ
@@ -587,7 +381,7 @@ async def get_phone(msg: types.Message, state):
     await client.connect()
     await client.send_code_request(phone)
 
-    login_clients[uid] = client
+    login_clients[msg.from_user.id] = client
     await state.update_data(phone=phone)
 
     await msg.answer(
@@ -595,6 +389,7 @@ async def get_phone(msg: types.Message, state):
         reply_markup=back_kb()
     )
     await PhoneState.code.set()
+
 
 @dp.message_handler(state=PhoneState.code)
 async def get_code(msg: types.Message, state):
@@ -625,11 +420,6 @@ async def get_code(msg: types.Message, state):
 
         with open(accounts_file, "w") as f:
             json.dump(accounts, f, indent=2)
-        
-        # Обновляем счетчик подключенных аккаунтов
-        user_data = get_user_data(uid)
-        user_data["accounts_connected_count"] = len(accounts)
-        save_user_data(uid, user_data)
 
         await msg.answer("✅ Аккаунт успешно добавлен", reply_markup=menu())
     except SessionPasswordNeededError:
@@ -642,6 +432,7 @@ async def get_code(msg: types.Message, state):
     await reset_login(uid)
     await state.finish()
 
+
 @dp.message_handler(state=PhoneState.password)
 async def get_password(msg: types.Message, state):
     uid = msg.from_user.id
@@ -649,35 +440,13 @@ async def get_password(msg: types.Message, state):
 
     try:
         await client.sign_in(password=msg.text.strip())
-        
-        data = await state.get_data()
-        accounts_file = f"{user_dir(uid)}/accounts.json"
-        accounts = []
-
-        if os.path.exists(accounts_file):
-            with open(accounts_file, "r") as f:
-                accounts = json.load(f)
-
-        me = await client.get_me()
-        accounts.append({
-            "phone": data["phone"],
-            "username": me.username or "no_username"
-        })
-
-        with open(accounts_file, "w") as f:
-            json.dump(accounts, f, indent=2)
-        
-        # Обновляем счетчик подключенных аккаунтов
-        user_data = get_user_data(uid)
-        user_data["accounts_connected_count"] = len(accounts)
-        save_user_data(uid, user_data)
-        
         await msg.answer("✅ Аккаунт добавлен (2FA)", reply_markup=menu())
     except Exception as e:
         await msg.answer(f"❌ Ошибка 2FA: {e}", reply_markup=menu())
 
     await reset_login(uid)
     await state.finish()
+
 
 # ======================
 # ТЕКСТ
@@ -736,6 +505,7 @@ async def settings_start(msg: types.Message, state):
     )
     await SettingsFSM.delay_groups.set()
 
+
 @dp.message_handler(state=SettingsFSM.delay_groups)
 async def set_delay_groups(msg: types.Message, state):
     if not msg.text.isdigit():
@@ -745,6 +515,7 @@ async def set_delay_groups(msg: types.Message, state):
     await msg.answer("👥 Сколько групп брать с одного аккаунта?", reply_markup=back_kb())
     await SettingsFSM.groups_count.set()
 
+
 @dp.message_handler(state=SettingsFSM.groups_count)
 async def set_groups(msg: types.Message, state):
     if not msg.text.isdigit():
@@ -753,6 +524,7 @@ async def set_groups(msg: types.Message, state):
     await state.update_data(groups_per_account=int(msg.text))
     await msg.answer("⏳ Задержка после всех аккаунтов (Минуты):", reply_markup=back_kb())
     await SettingsFSM.delay_cycle.set()
+
 
 @dp.message_handler(state=SettingsFSM.delay_cycle)
 async def set_cycle(msg: types.Message, state):
@@ -775,8 +547,9 @@ async def set_cycle(msg: types.Message, state):
     await msg.answer("✅ Настройки сохранены", reply_markup=menu())
     await state.finish()
 
+
 # ======================
-# ЛИЧНЫЙ КАБИНЕТ (ОБНОВЛЕН)
+# ЛИЧНЫЙ КАБИНЕТ
 # ======================
 @dp.message_handler(lambda m: m.text == "👤 Личный кабинет", state="*")
 async def cabinet(msg: types.Message, state):
@@ -787,7 +560,6 @@ async def cabinet(msg: types.Message, state):
     tariff = get_tariff(uid)
     text_msg = get_user_text(uid)
     settings = get_settings(uid)
-    user_data = get_user_data(uid)
 
     text = "👤 <b>Личный кабинет</b>\n\n"
 
@@ -829,17 +601,6 @@ async def cabinet(msg: types.Message, state):
             text += "• ⏳ <b>Срок истёк</b>\n"
     text += "\n"
 
-    # РЕФЕРАЛЬНАЯ СИСТЕМА
-    text += "👥 <b>Реферальная система:</b>\n"
-    text += f"• 🎯 Рефералов: <b>{user_data['referrals_count']}/3</b>\n"
-    if user_data['discount_50'] and not user_data['discount_used']:
-        text += "• 🎁 <b>Скидка 50% доступна!</b>\n"
-    elif user_data['discount_used']:
-        text += "• ✅ Скидка 50% использована\n"
-    else:
-        text += f"• 📈 До скидки осталось: <b>{3 - user_data['referrals_count']}</b> рефералов\n"
-    text += "\n"
-
     # ТЕКСТ РАССЫЛКИ
     text += "📄 <b>Текст рассылки:</b>\n"
     if text_msg:
@@ -869,6 +630,7 @@ async def cabinet(msg: types.Message, state):
     )
 
     await msg.answer(text, parse_mode="HTML", reply_markup=menu())
+
 
 @dp.message_handler(lambda m: m.text.lower() in ["del all", "del_all"], state="*")
 async def delete_all_accounts(msg: types.Message, state):
@@ -905,11 +667,6 @@ async def delete_all_accounts(msg: types.Message, state):
     acc_file = f"{path}/accounts.json"
     if os.path.exists(acc_file):
         os.remove(acc_file)
-    
-    # Обновляем счетчик аккаунтов
-    user_data = get_user_data(uid)
-    user_data["accounts_connected_count"] = 0
-    save_user_data(uid, user_data)
 
     # 🧹 чистим telethon journal
     for file in os.listdir(path):
@@ -929,6 +686,7 @@ async def delete_all_accounts(msg: types.Message, state):
         parse_mode="HTML",
         reply_markup=menu()
     )
+
 
 @dp.message_handler(
     lambda m: m.text.lower().startswith("del ")
@@ -971,11 +729,6 @@ async def delete_account(msg: types.Message, state):
     accounts.pop(idx)
     with open(accounts_file, "w") as f:
         json.dump(accounts, f, indent=2)
-    
-    # Обновляем счетчик аккаунтов
-    user_data = get_user_data(uid)
-    user_data["accounts_connected_count"] = len(accounts)
-    save_user_data(uid, user_data)
 
     # чистим логи
     if uid in workers and "logs" in workers[uid]:
@@ -989,23 +742,14 @@ async def delete_account(msg: types.Message, state):
 
     await msg.answer("✅ Аккаунт полностью удалён", reply_markup=menu())
 
+
 # ======================
-# START / STOP WORK (ОБНОВЛЕНО)
+# START / STOP WORK
 # ======================
 @dp.message_handler(lambda m: m.text == "▶️ Начать работу", state="*")
 async def start_work(msg: types.Message, state):
     await state.finish()
     uid = msg.from_user.id
-
-    # Обновляем флаг "Начать работу"
-    user_data = get_user_data(uid)
-    user_data["start_work_clicked"] = True
-    
-    # Устанавливаем время начала триала если еще не установлено
-    if not user_data["trial_start_time"]:
-        user_data["trial_start_time"] = time.time()
-    
-    save_user_data(uid, user_data)
 
     if not is_tariff_active(uid):
         await msg.answer("⛔ Тариф не активен", reply_markup=menu())
@@ -1087,6 +831,7 @@ async def start_work(msg: types.Message, state):
 
     workers[uid]["task"] = task
 
+
 @dp.message_handler(lambda m: m.text == "⛔ Остановить", state="*")
 async def stop(msg: types.Message, state):
     await state.finish()
@@ -1095,72 +840,47 @@ async def stop(msg: types.Message, state):
         workers[uid]["stop"] = True
         await msg.answer("⛔ Рассылка остановлена", reply_markup=menu())
 
+
 # ======================
-# ТАРИФЫ (ОБНОВЛЕНО ДЛЯ СКИДКИ)
+# ТАРИФЫ
 # ======================
 @dp.message_handler(lambda m: m.text == "💳 Тарифы")
 async def tariffs(msg: types.Message):
-    uid = msg.from_user.id
-    user_data = get_user_data(uid)
-    
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("🥉 30 дней — 20 USDT")
     kb.add("🥈 90 дней — 35 USDT")
     kb.add("🥇 365 дней — 100 USDT")
     kb.add("⬅️ Назад")
 
-    discount_info = ""
-    if user_data["discount_50"] and not user_data["discount_used"]:
-        discount_info = (
-            "\n\n🎉 <b>У ВАС ЕСТЬ СКИДКА 50%!</b>\n"
-            "💰 Цены с учётом скидки:\n"
-            f"• 30 дней — <b>10 USDT</b> (вместо 20)\n"
-            f"• 90 дней — <b>17.5 USDT</b> (вместо 35)\n"
-            f"• 365 дней — <b>50 USDT</b> (вместо 100)\n"
-            "✅ Скидка применится автоматически!"
-        )
-
     await msg.answer(
         "💳 <b>ВЫБЕРИТЕ ТАРИФ</b>\n\n"
         "🥉 <b>30 ДНЕЙ</b>\n"
-        "— до <b>10 аккаунтов</b>\n"
-        "💰 Цена: <b>20 USDT</b>\n\n"
+        "— до <b>10 аккаунтов</b>\n\n"
         "🥈 <b>90 ДНЕЙ</b>\n"
-        "— до <b>50 аккаунтов</b>\n"
-        "💰 Цена: <b>35 USDT</b>\n\n"
+        "— до <b>50 аккаунтов</b>\n\n"
         "🥇 <b>365 ДНЕЙ</b>\n"
-        "— до <b>100 аккаунтов</b>\n"
-        "💰 Цена: <b>100 USDT</b>\n\n"
+        "— до <b>100 аккаунтов</b>\n\n"
         "✅ <b>После оплаты тариф активируется автоматически</b>\n\n"
-        "🎁 <b>Бесплатный тестовый период:</b> 24 часа (1 день)"
-        f"{discount_info}",
+        "🎁 <b>Бесплатный тестовый период:</b> 24 часа (1 день)",  # Добавлена информация о тестовом периоде
         parse_mode="HTML",
         reply_markup=kb
     )
+
 
 @dp.message_handler(lambda m: "30 дней" in m.text)
 async def buy_30(msg: types.Message):
-    uid = msg.from_user.id
-    user_data = get_user_data(uid)
-    
-    apply_discount = user_data["discount_50"] and not user_data["discount_used"]
-    final_price = round(20 * 0.5, 2) if apply_discount else 20
-    
     invoice = create_invoice(
         CRYPTOBOT_TOKEN,
-        amount=final_price,
-        description=f"Тариф 30 дней{' (со скидкой 50%)' if apply_discount else ''}",
-        payload=f"tariff_30_{uid}"
+        amount=20,
+        description="Тариф 30 дней",
+        payload=f"tariff_30_{msg.from_user.id}"
     )
 
     inv = invoice["result"]
 
-    save_payment(uid, {
+    save_payment(msg.from_user.id, {
         "invoice_id": inv["invoice_id"],
-        "tariff_key": "30",
-        "apply_discount": apply_discount,
-        "original_price": 20,
-        "final_price": final_price
+        "tariff_key": "30"
     })
 
     kb = InlineKeyboardMarkup()
@@ -1168,43 +888,30 @@ async def buy_30(msg: types.Message):
         InlineKeyboardButton("💸 Оплатить USDT", url=inv["pay_url"]),
         InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")
     )
-    
-    price_text = f"💰 Цена: {final_price} USDT"
-    if apply_discount:
-        price_text = f"💰 Цена: <s>20 USDT</s> <b>{final_price} USDT</b> (скидка 50%)"
 
     await msg.answer(
-        f"📦 Тариф 30 дней\n"
-        f"{price_text}\n\n"
+        "📦 Тариф 30 дней\n"
+        "💰 Цена: 20 USDT\n\n"
         "1️⃣ Оплатите счёт\n"
         "2️⃣ Нажмите «Проверить оплату»",
-        parse_mode="HTML",
         reply_markup=kb
     )
+
 
 @dp.message_handler(lambda m: "90 дней" in m.text)
 async def buy_90(msg: types.Message):
-    uid = msg.from_user.id
-    user_data = get_user_data(uid)
-    
-    apply_discount = user_data["discount_50"] and not user_data["discount_used"]
-    final_price = round(35 * 0.5, 2) if apply_discount else 35
-    
     invoice = create_invoice(
         CRYPTOBOT_TOKEN,
-        amount=final_price,
-        description=f"Тариф 90 дней{' (со скидкой 50%)' if apply_discount else ''}",
-        payload=f"tariff_90_{uid}"
+        amount=35,
+        description="Тариф 90 дней",
+        payload=f"tariff_90_{msg.from_user.id}"
     )
 
     inv = invoice["result"]
 
-    save_payment(uid, {
+    save_payment(msg.from_user.id, {
         "invoice_id": inv["invoice_id"],
-        "tariff_key": "90",
-        "apply_discount": apply_discount,
-        "original_price": 35,
-        "final_price": final_price
+        "tariff_key": "90"
     })
 
     kb = InlineKeyboardMarkup()
@@ -1212,43 +919,30 @@ async def buy_90(msg: types.Message):
         InlineKeyboardButton("💸 Оплатить USDT", url=inv["pay_url"]),
         InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")
     )
-    
-    price_text = f"💰 Цена: {final_price} USDT"
-    if apply_discount:
-        price_text = f"💰 Цена: <s>35 USDT</s> <b>{final_price} USDT</b> (скидка 50%)"
 
     await msg.answer(
-        f"📦 Тариф 90 дней\n"
-        f"{price_text}\n\n"
+        "📦 Тариф 90 дней\n"
+        "💰 Цена: 35 USDT\n\n"
         "1️⃣ Оплатите счёт\n"
         "2️⃣ Нажмите «Проверить оплату»",
-        parse_mode="HTML",
         reply_markup=kb
     )
+
 
 @dp.message_handler(lambda m: "365 дней" in m.text)
 async def buy_365(msg: types.Message):
-    uid = msg.from_user.id
-    user_data = get_user_data(uid)
-    
-    apply_discount = user_data["discount_50"] and not user_data["discount_used"]
-    final_price = round(100 * 0.5, 2) if apply_discount else 100
-    
     invoice = create_invoice(
         CRYPTOBOT_TOKEN,
-        amount=final_price,
-        description=f"Тариф 365 дней{' (со скидкой 50%)' if apply_discount else ''}",
-        payload=f"tariff_365_{uid}"
+        amount=100,
+        description="Тариф 365 дней",
+        payload=f"tariff_365_{msg.from_user.id}"
     )
 
     inv = invoice["result"]
 
-    save_payment(uid, {
+    save_payment(msg.from_user.id, {
         "invoice_id": inv["invoice_id"],
-        "tariff_key": "365",
-        "apply_discount": apply_discount,
-        "original_price": 100,
-        "final_price": final_price
+        "tariff_key": "365"
     })
 
     kb = InlineKeyboardMarkup()
@@ -1256,19 +950,15 @@ async def buy_365(msg: types.Message):
         InlineKeyboardButton("💸 Оплатить USDT", url=inv["pay_url"]),
         InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")
     )
-    
-    price_text = f"💰 Цена: {final_price} USDT"
-    if apply_discount:
-        price_text = f"💰 Цена: <s>100 USDT</s> <b>{final_price} USDT</b> (скидка 50%)"
 
     await msg.answer(
-        f"📦 Тариф 365 дней\n"
-        f"{price_text}\n\n"
+        "📦 Тариф 365 дней\n"
+        "💰 Цена: 100 USDT\n\n"
         "1️⃣ Оплатите счёт\n"
         "2️⃣ Нажмите «Проверить оплату»",
-        parse_mode="HTML",
         reply_markup=kb
     )
+
 
 @dp.callback_query_handler(lambda c: c.data == "check_payment", state="*")
 async def check_payment(call: types.CallbackQuery):
@@ -1283,9 +973,6 @@ async def check_payment(call: types.CallbackQuery):
 
     invoice_id = data["invoice_id"]
     tariff_key = data["tariff_key"]
-    apply_discount = data.get("apply_discount", False)
-    original_price = data.get("original_price", 0)
-    final_price = data.get("final_price", 0)
 
     import requests
 
@@ -1315,66 +1002,15 @@ async def check_payment(call: types.CallbackQuery):
         await call.message.answer("❌ Оплаты нет.")
         return
 
-    # ✅ Активируем тариф
-    discount_applied, price_paid = activate_tariff(uid, tariff_key, apply_discount)
+    # ✅ ТОЛЬКО ТУТ
+    activate_tariff(uid, tariff_key)
     delete_payment(uid)
 
-    success_text = "✅ Оплата получена.\n🎉 Тариф активирован."
-    
-    if discount_applied:
-        success_text += f"\n💰 Скидка 50% применена! Стоимость: {price_paid} USDT (вместо {original_price})"
-        await send_notification(uid,
-            "🎉 Вы использовали скидку 50%!\n"
-            "✅ Скидка успешно применена к оплате.\n"
-            "📊 Статус реферальной программы обновлён."
-        )
-
-    await call.message.answer(success_text)
+    await call.message.answer(
+        "✅ Оплата получена.\n🎉 Тариф активирован."
+    )
     await call.message.edit_reply_markup()
 
-# ======================
-# АВТОМАТИЧЕСКАЯ ПРОВЕРКА ТРИАЛОВ
-# ======================
-async def check_trial_completions():
-    """Периодическая проверка завершения триалов"""
-    while True:
-        try:
-            users_dir = "users"
-            if os.path.exists(users_dir):
-                for user_folder in os.listdir(users_dir):
-                    if user_folder.startswith("user_"):
-                        try:
-                            uid = int(user_folder.split("_")[1])
-                            user_data = get_user_data(uid)
-                            
-                            # Проверяем завершение 24-часового триала
-                            if not user_data["trial_completed"] and user_data["trial_start_time"]:
-                                if time.time() - user_data["trial_start_time"] >= 24 * 60 * 60:
-                                    user_data["trial_completed"] = True
-                                    save_user_data(uid, user_data)
-                                    print(f"✅ Триал завершен для пользователя {uid}")
-                                    
-                                    # Проверяем условия для реферала
-                                    if check_referral_conditions(uid):
-                                        referrer_id = user_data["referrer_id"]
-                                        if referrer_id:
-                                            update_referral_count(referrer_id)
-                                            mark_referral_credited(uid)
-                                            print(f"🎯 Реферал засчитан: {uid} -> {referrer_id}")
-                                            
-                                            await send_notification(uid,
-                                                "✅ Ваш 24-часовой триал завершён!\n"
-                                                "👥 Вы засчитаны как реферал."
-                                            )
-                        except:
-                            continue
-        except:
-            pass
-        
-        await asyncio.sleep(60)  # Проверка каждую минуту
-
-# Запускаем проверку при старте
-asyncio.create_task(check_trial_completions())
 
 # ======================
 # RUN
