@@ -551,7 +551,7 @@ async def usage(msg: types.Message, state):
     kb.add(
         InlineKeyboardButton(
             text="📖 Открыть инструкцию",
-            url="https://satoshi00722.github.io/BlastBotSite/"
+            url="https://digitalilservices.github.io/BlastBot/"
         )
     )
 
@@ -1435,6 +1435,7 @@ if __name__ == "__main__":
         print("FATAL ERROR:", e, flush=True)
         traceback.print_exc()
         time.sleep(60)
+
 
 
 
